@@ -159,3 +159,17 @@ const table = sqliteTable("session", {
 - Keep delivery vocabulary explicit. Prompts steer by default and promote at the next safe provider-turn boundary while the current drain requires continuation. An explicit `queue` input remains pending until the Session would otherwise become idle; promote one queued input at that boundary, then reevaluate continuation before promoting another. Promoting any new user input resets the selected agent's provider-turn allowance; a batch of steers resets it once.
 - Keep EventV2 replay owner claims separate from clustered Session execution ownership.
 - Keep the System Context algebra, registry, and built-ins in `src/system-context`; keep Context Source producers with their observed domains, and keep Session History selection plus Context Epoch persistence Session-owned.
+
+## EagleCode Lifecycle & Parallel Branching Workflow Rules
+
+# EagleCode Lifecycle & Parallel Branching Workflow Rules
+
+1. **End-to-End Ownership & Testing**: Own changes end-to-end. For any change requiring compilation/build, the task is NOT complete until relevant tests, final build, safe atomic canonical deployment, and smoke checks have actually succeeded autonomously. Never hand build commands to the user instead of executing them. If blocked or failing, report the exact blocker and do not claim the target is updated.
+
+2. **Isolated Staging & Atomic Deployment**: Build correct source/plugin; deploy the tested binary to the single canonical terminal + PhpStorm target (`~/.local/bin/eaglecode`). Always use isolated build staging and atomic replacement during active sessions (never delete the running canonical dist in-place). Preserve session state, authentication, and data.
+
+3. **No Hot-Reloading**: Acknowledge that compiled binaries, configs, and plugins are never hot-reloaded into running processes.
+
+4. **Session Resume & Restart Safety**: Reliably capture `$OPENCODE_SESSION_ID`. Safe self-restart of the current session is authorized if safely possible; killing unrelated sessions, killing the tool host abruptly, guessing session IDs, or spawning headless duplicate TUIs without a TTY is prohibited. When in-process restart cannot preserve the interactive TUI/controlling terminal, user manual action is limited to closing/reopening the same verified chat when safe autonomous restart is impossible; provide an explicit handoff with the exact verified resume command (`opencode -s <ID>`).
+
+5. **Parallel Branching, Atomic Deploy & Verified Push**: For any new feature or modification on EagleCode or plugins (model-manager), operate in a dedicated branch or worktree to isolate work from other open sessions. Full cycle: Implementation -> Unit tests -> Visual/E2E tests -> Build with atomic deploy to the canonical binary (`~/.local/bin/eaglecode`). Commit and push to GitHub (`https://github.com/mattiacentonze/eaglecode`) only when everything is 100% verified, tested, working, and approved/confirmed by the user. Every restarted session benefits from the updated binary thanks to the shared canonical target.
