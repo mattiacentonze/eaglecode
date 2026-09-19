@@ -943,6 +943,48 @@ export function Prompt(props: PromptProps) {
     return {
       target: inputTarget,
       priority: 15,
+      enabled: () => !props.disabled && !auto()?.visible,
+      bindings: [
+        {
+          key: "shift+return",
+          desc: "Insert newline",
+          group: "Prompt",
+          cmd: () => {
+            input?.newLine()
+          },
+        },
+        {
+          key: "alt+return",
+          desc: "Insert newline",
+          group: "Prompt",
+          cmd: () => {
+            input?.newLine()
+          },
+        },
+        {
+          key: "ctrl+return",
+          desc: "Insert newline",
+          group: "Prompt",
+          cmd: () => {
+            input?.newLine()
+          },
+        },
+        {
+          key: "ctrl+j",
+          desc: "Insert newline",
+          group: "Prompt",
+          cmd: () => {
+            input?.newLine()
+          },
+        },
+      ],
+    }
+  })
+
+  useBindings(() => {
+    return {
+      target: inputTarget,
+      priority: 15,
       enabled: (() => {
         cursorVersion()
         return inputTarget() !== undefined && !props.disabled && !auto()?.visible && input !== undefined
@@ -1506,6 +1548,15 @@ export function Prompt(props: PromptProps) {
               }}
               onCursorChange={() => setCursorVersion((value) => value + 1)}
               onKeyDown={(e: KeyEvent) => {
+                const alt = e.option || (e as { alt?: boolean }).alt
+                if (
+                  (e.name === "return" && (e.shift || alt || e.ctrl)) ||
+                  e.name === "linefeed"
+                ) {
+                  e.preventDefault()
+                  input.newLine()
+                  return
+                }
                 if (props.disabled) {
                   e.preventDefault()
                   return

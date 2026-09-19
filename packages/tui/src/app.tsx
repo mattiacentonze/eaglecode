@@ -190,24 +190,35 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
     Effect.gen(function* () {
       const renderer = yield* Effect.acquireRelease(
         Effect.tryPromise({
-          try: () =>
-            createCliRenderer({
+          try: () => {
+            if (process.stdout.isTTY) {
+              process.stdout.write("\x1b[>4;2m")
+            }
+            return createCliRenderer({
               externalOutputMode: "passthrough",
               targetFps: 60,
               gatherStats: false,
               exitOnCtrlC: false,
-              useKittyKeyboard: {},
+              useKittyKeyboard: {
+                disambiguate: true,
+                alternateKeys: true,
+                allKeysAsEscapes: true,
+              },
               autoFocus: false,
               openConsoleOnError: false,
               useMouse: !Flag.OPENCODE_DISABLE_MOUSE && input.config.mouse,
               consoleOptions: {
                 keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
               },
-            }),
+            })
+          },
           catch: (error) => (error instanceof Error ? error : new Error(String(error))),
         }),
         (renderer) =>
           Effect.sync(() => {
+            if (process.stdout.isTTY) {
+              process.stdout.write("\x1b[>4m")
+            }
             destroyRenderer(renderer)
           }),
       )

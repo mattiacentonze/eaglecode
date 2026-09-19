@@ -11,14 +11,19 @@ const START_COL = -3
 const END_COL = 60
 const BEAM_RADIUS = 3.5
 
+const cyanGlint = RGBA.fromHex("#00FFFF") // Vivid electric cyan
+const brightCyan = RGBA.fromHex("#E0FFFF") // Ultra-bright white-cyan flash
+
 export function Logo() {
   const { theme } = useTheme()
   const kv = useKV()
   const [beamCol, setBeamCol] = createSignal<number | null>(null)
+  const [idleEyeGlint, setIdleEyeGlint] = createSignal(false)
 
   createEffect(() => {
     if (!kv.get("animations_enabled", true)) {
       setBeamCol(null)
+      setIdleEyeGlint(false)
       return
     }
 
@@ -50,6 +55,28 @@ export function Logo() {
     })
   })
 
+  // Idle pulse for the eye: pulses cyan every 2 seconds for 200ms when beamCol() === null
+  createEffect(() => {
+    if (!kv.get("animations_enabled", true)) {
+      setIdleEyeGlint(false)
+      return
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    const interval = setInterval(() => {
+      if (beamCol() === null) {
+        setIdleEyeGlint(true)
+        timeout = setTimeout(() => setIdleEyeGlint(false), 200)
+      }
+    }, 2000)
+
+    onCleanup(() => {
+      clearInterval(interval)
+      if (timeout) clearTimeout(timeout)
+      setIdleEyeGlint(false)
+    })
+  })
+
   const renderLine = (line: string, rowIndex: number, colOffset: number): JSX.Element[] => {
     const isRight = colOffset > 0
     const baseFg = isRight ? theme.text : theme.textMuted
@@ -61,22 +88,34 @@ export function Logo() {
 
       const fg = () => {
         const beam = beamCol()
-        if (beam === null) return baseFg
+        if (beam === null) {
+          if (isEye && idleEyeGlint()) return cyanGlint
+          return baseFg
+        }
         const dist = Math.abs(col - beam)
-        if (dist >= BEAM_RADIUS) return baseFg
+        if (dist >= BEAM_RADIUS) {
+          if (isEye && idleEyeGlint()) return cyanGlint
+          return baseFg
+        }
         const intensity = Math.cos((dist / BEAM_RADIUS) * (Math.PI / 2))
         if (isEye) {
-          if (intensity > 0.7) return tint(theme.primary, theme.text, 0.3)
-          return tint(baseFg, theme.primary, Math.min(1, intensity * 1.5))
+          if (intensity > 0.6) return brightCyan
+          if (intensity > 0.15) return cyanGlint
         }
         return tint(baseFg, theme.primary, intensity)
       }
 
       const attrs = () => {
         const beam = beamCol()
-        if (beam === null) return baseBold ? TextAttributes.BOLD : undefined
+        if (beam === null) {
+          if (isEye && idleEyeGlint()) return TextAttributes.BOLD
+          return baseBold ? TextAttributes.BOLD : undefined
+        }
         const dist = Math.abs(col - beam)
-        if (dist >= BEAM_RADIUS) return baseBold ? TextAttributes.BOLD : undefined
+        if (dist >= BEAM_RADIUS) {
+          if (isEye && idleEyeGlint()) return TextAttributes.BOLD
+          return baseBold ? TextAttributes.BOLD : undefined
+        }
         if (isRight || isEye) return TextAttributes.BOLD
         const intensity = Math.cos((dist / BEAM_RADIUS) * (Math.PI / 2))
         if (intensity > 0.4) return TextAttributes.BOLD

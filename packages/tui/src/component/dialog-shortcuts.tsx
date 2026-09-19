@@ -1,39 +1,21 @@
 import { TextAttributes } from "@opentui/core"
 import { For, createMemo } from "solid-js"
 import { useDialog } from "../ui/dialog"
-import { useSync } from "../context/sync"
 import { useTheme } from "../context/theme"
-import { useBindings, useCommandShortcut } from "../keymap"
+import { useBindings } from "../keymap"
 
 export type DialogShortcutsProps = {
   sessionID?: string
 }
 
-export function DialogShortcuts(props: DialogShortcutsProps) {
+type ShortcutGroup = {
+  category: string
+  items: { key: string; label: string }[]
+}
+
+export function DialogShortcuts(_props: DialogShortcutsProps) {
   const dialog = useDialog()
-  const sync = useSync()
   const { theme } = useTheme()
-
-  const status = createMemo(() => {
-    if (!props.sessionID) return { type: "idle" }
-    return sync.data.session_status?.[props.sessionID] ?? { type: "idle" }
-  })
-
-  const isRunning = createMemo(() => status().type !== "idle")
-
-  const enterShortcut = useCommandShortcut("input.submit")
-  const submitKey = createMemo(() => {
-    const raw = enterShortcut()
-    if (!raw || raw === "return" || raw.toLowerCase() === "enter") return "Enter"
-    return raw.charAt(0).toUpperCase() + raw.slice(1)
-  })
-
-  const queueShortcut = useCommandShortcut("prompt.queue")
-  const queueKey = createMemo(() => {
-    const raw = queueShortcut()
-    if (!raw || raw.toLowerCase() === "tab") return "Tab"
-    return raw.charAt(0).toUpperCase() + raw.slice(1)
-  })
 
   useBindings(() => ({
     enabled: true,
@@ -53,39 +35,66 @@ export function DialogShortcuts(props: DialogShortcutsProps) {
     ],
   }))
 
-  const shortcuts = createMemo(() => [
-    { key: "/", label: "for commands" },
-    { key: "!", label: "for shell commands" },
-    { key: "Shift+Enter", label: "for newline" },
-    { key: isRunning() ? queueKey() : submitKey(), label: isRunning() ? "to queue message" : "to submit message" },
-    { key: "@", label: "for file paths" },
-    { key: "Ctrl+V", label: "to paste images" },
-    { key: "Ctrl+G", label: "to edit in external editor" },
-    { key: "Esc Esc", label: "to edit previous message" },
-    { key: "Ctrl+R", label: "search history" },
-    { key: "Ctrl+C", label: isRunning() ? "to interrupt" : "to exit" },
-    { key: "Alt+,", label: "reasoning down" },
-    { key: "Alt+.", label: "reasoning up" },
-    { key: "Shift+Tab", label: "to change mode" },
-    { key: "Ctrl+T", label: "to view transcript" },
+  const groups = createMemo<ShortcutGroup[]>(() => [
+    {
+      category: "Prompt & Input",
+      items: [
+        { key: "Enter", label: "Submit prompt (or steer when busy)" },
+        { key: "Tab", label: "Enqueue prompt" },
+        { key: "Shift+Enter", label: "Newline (Shift+Enter / Ctrl+J)" },
+        { key: "Shift+Tab", label: "Cycle agent (build, plan, etc.)" },
+        { key: "Ctrl+T", label: "Cycle model variant / reasoning" },
+        { key: "Ctrl+C", label: "Clear prompt" },
+        { key: "Ctrl+P", label: "Command palette" },
+        { key: "/", label: "Slash commands autocomplete" },
+        { key: "!", label: "Shell command shorthand" },
+        { key: "@", label: "File / directory mention" },
+      ],
+    },
+    {
+      category: "Navigation & Actions",
+      items: [
+        { key: "Escape", label: "Interrupt session (or send steer immediately)" },
+        { key: "PageUp / PageDown", label: "Scroll messages" },
+        { key: "Home / End", label: "Jump to first / last message" },
+        { key: "Ctrl+X e", label: "Open in external editor (/editor)" },
+        { key: "Ctrl+X m", label: "Model selector (/model)" },
+        { key: "Ctrl+X a", label: "Agent selector (/agent)" },
+        { key: "Ctrl+X l", label: "Session list" },
+        { key: "Ctrl+X t", label: "Theme selector" },
+        { key: "?", label: "Toggle shortcuts help" },
+        { key: "q / Esc", label: "Close this dialog" },
+      ],
+    },
   ])
 
   return (
-    <box flexDirection="column" width={54} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
+    <box flexDirection="column" width={64} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between" marginBottom={1}>
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
           Keyboard Shortcuts
         </text>
-        <text fg={theme.textMuted}>Esc to close</text>
+        <text fg={theme.textMuted}>q / Esc to close</text>
       </box>
-      <box flexDirection="column" gap={0}>
-        <For each={shortcuts()}>
-          {(item) => (
-            <box flexDirection="row" gap={1}>
-              <box width={14}>
-                <text fg={theme.text}>{item.key}</text>
+      <box flexDirection="column" gap={1}>
+        <For each={groups()}>
+          {(group) => (
+            <box flexDirection="column" gap={0}>
+              <box marginBottom={0}>
+                <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+                  {group.category}
+                </text>
               </box>
-              <text fg={theme.textMuted}>{item.label}</text>
+              <For each={group.items}>
+                {(item) => (
+                  <box flexDirection="row" gap={1}>
+                    <box width={20}>
+                      <text fg={theme.text}>{item.key}</text>
+                    </box>
+                    <text fg={theme.textMuted}>{item.label}</text>
+                  </box>
+                )}
+              </For>
             </box>
           )}
         </For>
