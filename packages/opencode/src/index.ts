@@ -1,5 +1,6 @@
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
+import path from "path"
 import { RunCommand } from "./cli/cmd/run"
 import { GenerateCommand } from "./cli/cmd/generate"
 import { ConsoleCommand } from "./cli/cmd/account"
@@ -31,10 +32,12 @@ import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
 
 const args = hideBin(process.argv)
+const invokedName = path.basename(process.argv0 ?? process.argv[1] ?? "")
+const scriptName = invokedName === "eagle" ? "eagle" : "eaglecode"
 
 function show(out: string) {
   const text = out.trimStart()
-  if (!text.startsWith("eaglecode ") && !text.startsWith("opencode ")) {
+  if (!text.startsWith("eagle ") && !text.startsWith("eaglecode ") && !text.startsWith("opencode ")) {
     process.stderr.write(UI.logo() + EOL + EOL)
     process.stderr.write(text + EOL)
     return
@@ -44,7 +47,7 @@ function show(out: string) {
 
 const cli = yargs(args)
   .parserConfiguration({ "populate--": true })
-  .scriptName("eaglecode")
+  .scriptName(scriptName)
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")

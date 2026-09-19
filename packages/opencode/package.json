@@ -15,7 +15,9 @@
     "dev": "bun run ./src/index.ts"
   },
   "bin": {
-    "opencode": "./bin/opencode"
+    "opencode": "./bin/opencode",
+    "eaglecode": "./bin/opencode",
+    "eagle": "./bin/opencode"
   },
   "exports": {
     "./*": "./src/*.ts"
