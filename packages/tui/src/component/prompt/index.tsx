@@ -943,6 +943,48 @@ export function Prompt(props: PromptProps) {
     return {
       target: inputTarget,
       priority: 15,
+      enabled: () => !props.disabled && !auto()?.visible,
+      bindings: [
+        {
+          key: "shift+return",
+          desc: "Insert newline",
+          group: "Prompt",
+          cmd: () => {
+            input?.newLine()
+          },
+        },
+        {
+          key: "alt+return",
+          desc: "Insert newline",
+          group: "Prompt",
+          cmd: () => {
+            input?.newLine()
+          },
+        },
+        {
+          key: "ctrl+return",
+          desc: "Insert newline",
+          group: "Prompt",
+          cmd: () => {
+            input?.newLine()
+          },
+        },
+        {
+          key: "ctrl+j",
+          desc: "Insert newline",
+          group: "Prompt",
+          cmd: () => {
+            input?.newLine()
+          },
+        },
+      ],
+    }
+  })
+
+  useBindings(() => {
+    return {
+      target: inputTarget,
+      priority: 15,
       enabled: (() => {
         cursorVersion()
         return inputTarget() !== undefined && !props.disabled && !auto()?.visible && input !== undefined
