@@ -86,11 +86,11 @@ describe("reuseTimelineRows", () => {
       ],
       reused: [],
     },
-  ])("$name", ({ previous, rows, expected, reused }) => {
+  ])("$name", ({ previous, rows, expected, reused }: any) => {
     const result = reuseTimelineRows([...previous], [...rows])
 
     expect(keys(result)).toEqual([...expected])
     expect(new Set(keys(result)).size).toBe(result.length)
-    reused.forEach(([resultIndex, previousIndex]) => expect(result[resultIndex]).toBe(previous[previousIndex]))
+    reused.forEach(([resultIndex, previousIndex]: any) => expect(result[resultIndex]).toBe(previous[previousIndex]))
   })
 })

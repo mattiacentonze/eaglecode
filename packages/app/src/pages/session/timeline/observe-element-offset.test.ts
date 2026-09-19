@@ -100,7 +100,7 @@ test("keeps checking until stale reset-delay callbacks can no longer win", async
 test.each([
   { name: "LTR", isRtl: false, expected: 240 },
   { name: "RTL", isRtl: true, expected: -240 },
-])("reports the TanStack horizontal $name offset after reconnect", async ({ isRtl, expected }) => {
+])("reports the TanStack horizontal $name offset after reconnect", async ({ isRtl, expected }: any) => {
   const route = document.createElement("section")
   const viewport = document.createElement("div")
   route.append(viewport)

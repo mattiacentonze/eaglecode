@@ -5,7 +5,7 @@ const server = { url: "http://localhost:4096" }
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } })
 const mockFetch = (run: (input: string | URL | Request) => Promise<Response>) =>
-  Object.assign(run, { preconnect: globalThis.fetch.preconnect })
+  Object.assign(run, { preconnect: (globalThis.fetch as any).preconnect })
 
 describe("detectServerProtocol", () => {
   test("prefers the legacy health endpoint when both API generations exist", async () => {

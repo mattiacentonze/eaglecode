@@ -1,0 +1,14 @@
+diff --git a/src/ffi.ts b/src/ffi.ts
+index 75fb584c294f1d3b90d287f925a8fdb5c9c83cc2..8a91ac2f00b855c3e4a4cee388d06c18d26e9919 100644
+--- a/src/ffi.ts
++++ b/src/ffi.ts
+@@ -8,7 +8,8 @@
+  * be passed to all subsequent calls and freed with `ffiDestroy`.
+  */
+ 
+-import { CString, dlopen, FFIType, type Pointer, ptr, read } from "bun:ffi";
++import { CString, dlopen, FFIType, type Pointer as _Pointer, ptr, read } from "bun:ffi";
++type Pointer = _Pointer | bigint;
+ import { findBinary } from "./download";
+ import { embeddedLibPath } from "./embedded";
+ import type {

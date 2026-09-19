@@ -1,6 +1,5 @@
 import { parse } from "acorn"
 import { Cause, Effect, Exit, Fiber, Semaphore } from "effect"
-import { DiagnosticCategory, ModuleKind, ScriptTarget, flattenDiagnosticMessageText, transpileModule } from "typescript"
 import {
   copyIn,
   copyOut,
@@ -112,34 +111,37 @@ import {
   SandboxURLSearchParams,
 } from "../values.js"
 
+const transpiler = new Bun.Transpiler({ loader: "ts" })
+
 const parseProgram = (code: string): ProgramNode => {
-  const transpiled = transpileModule(`async function __codemode__() {\n${code}\n}`, {
-    reportDiagnostics: true,
-    compilerOptions: {
-      target: ScriptTarget.ESNext,
-      module: ModuleKind.ESNext,
-    },
-  })
-  const diagnostic = transpiled.diagnostics?.find((item) => item.category === DiagnosticCategory.Error)
-
-  if (diagnostic) {
-    throw new InterpreterRuntimeError(
-      `Failed to parse TypeScript: ${flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
-      undefined,
-      "ParseError",
-    )
-  }
-
-  const bodyStart = transpiled.outputText.indexOf("{") + 1
-  const bodyEnd = transpiled.outputText.lastIndexOf("}")
-  const executableCode = transpiled.outputText.slice(bodyStart, bodyEnd)
-  const parsed = parse(executableCode, {
-    ecmaVersion: "latest",
-    sourceType: "script",
+  const acornOptions = {
+    ecmaVersion: "latest" as const,
+    sourceType: "script" as const,
     allowReturnOutsideFunction: true,
     allowAwaitOutsideFunction: true,
     locations: true,
-  }) as unknown
+  }
+
+  let parsed: unknown
+  try {
+    parsed = parse(code, acornOptions) as unknown
+  } catch {
+    let outputText: string
+    try {
+      outputText = transpiler.transformSync(`async function __codemode__() {\n${code}\n}`)
+    } catch (error) {
+      throw new InterpreterRuntimeError(
+        `Failed to parse TypeScript: ${error instanceof Error ? error.message : String(error)}`,
+        undefined,
+        "ParseError",
+      )
+    }
+
+    const bodyStart = outputText.indexOf("{") + 1
+    const bodyEnd = outputText.lastIndexOf("}")
+    const executableCode = outputText.slice(bodyStart, bodyEnd)
+    parsed = parse(executableCode, acornOptions) as unknown
+  }
 
   if (!isRecord(parsed) || parsed.type !== "Program" || !Array.isArray(parsed.body)) {
     throw new InterpreterRuntimeError("Failed to parse script as a Program node.")

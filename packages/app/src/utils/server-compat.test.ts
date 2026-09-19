@@ -40,7 +40,7 @@ function setup(
       if (request.method === "GET") return Response.json([])
       return new Response(undefined, { status: 204 })
     },
-    { preconnect: globalThis.fetch.preconnect },
+    { preconnect: (globalThis.fetch as any).preconnect },
   )
   const server = { url: "http://localhost:4096" }
   const api = createCompatibleApi({
