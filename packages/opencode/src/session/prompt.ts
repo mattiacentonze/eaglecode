@@ -111,6 +111,7 @@ export interface Interface {
   readonly removeQueued: (sessionID: SessionID, messageID: string) => Effect.Effect<void>
   readonly reorderQueued: (sessionID: SessionID, messageID: string, direction: "up" | "down") => Effect.Effect<void>
   readonly popQueued: (sessionID: SessionID) => Effect.Effect<{ text: string }>
+  readonly steerQueued: (sessionID: SessionID) => Effect.Effect<void>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/SessionPrompt") {}
@@ -149,7 +150,11 @@ const layer = Layer.effect(
     const promptQueue = new Map<SessionID, PromptInput[]>()
 
     const extractPromptText = (parts?: PromptInput["parts"]): string =>
-      parts?.filter((p) => p.type === "text").map((p) => p.text).join(" ").trim() ?? ""
+      parts
+        ?.filter((p) => p.type === "text")
+        .map((p) => p.text)
+        .join(" ")
+        .trim() ?? ""
 
     const publishQueued = (sessionID: SessionID) => {
       const q = promptQueue.get(sessionID) ?? []
@@ -228,6 +233,19 @@ const layer = Layer.effect(
         return { text }
       }
       return { text: "" }
+    })
+
+    const steerQueued = Effect.fn("SessionPrompt.steerQueued")(function* (sessionID: SessionID) {
+      yield* Effect.logInfo("steerQueued", { "session.id": sessionID })
+      const q = promptQueue.get(sessionID)
+      if (!q || q.length === 0) {
+        return
+      }
+      const next = q.shift()!
+      if (q.length === 0) promptQueue.delete(sessionID)
+      yield* publishQueued(sessionID)
+      yield* state.cancel(sessionID)
+      yield* prompt({ ...next, force: true }).pipe(Effect.forkIn(scope))
     })
 
     const resolvePromptParts = Effect.fn("SessionPrompt.resolvePromptParts")(function* (template: string) {
@@ -1451,7 +1469,11 @@ const layer = Layer.effect(
     const loop: (input: LoopInput) => Effect.Effect<SessionV1.WithParts> = Effect.fn("SessionPrompt.loop")(function* (
       input: LoopInput,
     ) {
-      const result = yield* state.ensureRunning(input.sessionID, lastAssistant(input.sessionID), runLoop(input.sessionID))
+      const result = yield* state.ensureRunning(
+        input.sessionID,
+        lastAssistant(input.sessionID),
+        runLoop(input.sessionID),
+      )
       const q = promptQueue.get(input.sessionID)
       if (q && q.length > 0) {
         const next = q.shift()!
@@ -1611,6 +1633,7 @@ const layer = Layer.effect(
       removeQueued,
       reorderQueued,
       popQueued,
+      steerQueued,
     })
   }),
 )

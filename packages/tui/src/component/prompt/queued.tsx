@@ -38,20 +38,14 @@ export function Queued(props: QueuedProps) {
         backgroundColor={theme.backgroundElement}
         width="100%"
       >
-        <box flexDirection="row" paddingLeft={1} paddingRight={1} justifyContent="space-between">
-          <text fg={theme.textMuted}>
-            {items().length} queued · click to edit · alt+↑ pop last
-          </text>
+        <box flexDirection="row" paddingLeft={1} paddingRight={1}>
+          <text fg={theme.text}>Messages to be submitted after next tool call </text>
+          <text fg={theme.textMuted}>(press esc to interrupt and send immediately)</text>
         </box>
         <box flexDirection="column" gap={0} width="100%">
           <For each={items()}>
             {(item, index) => {
               const isSelected = () => selected() === index()
-              const displayText = () => {
-                const lines = item.text.split("\n").filter(Boolean)
-                const firstLine = lines[0] ?? ""
-                return firstLine.length > 80 ? firstLine.slice(0, 77) + "..." : firstLine
-              }
 
               return (
                 <box
@@ -73,67 +67,27 @@ export function Queued(props: QueuedProps) {
                     props.onEdit?.(item)
                   }}
                 >
-                  <text
-                    fg={isSelected() ? theme.text : theme.textMuted}
-                    flexGrow={1}
-                    wrapMode="none"
+                  <box flexDirection="row" flexGrow={1} gap={1}>
+                    <text fg={theme.textMuted}>↳</text>
+                    <text fg={theme.text}>{item.text}</text>
+                  </box>
+                  <box
+                    flexShrink={0}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                    }}
+                    onMouseUp={(e) => {
+                      e.stopPropagation()
+                      if (props.sessionID) {
+                        void sdk.client.session.queuedRemove({
+                          sessionID: props.sessionID,
+                          messageID: item.messageID,
+                        })
+                      }
+                      props.onDelete?.(item.messageID)
+                    }}
                   >
-                    {`${index() + 1}. `}{displayText()}
-                  </text>
-                  <box flexDirection="row" gap={1} flexShrink={0}>
-                    <box
-                      onMouseDown={(e) => {
-                        e.stopPropagation()
-                      }}
-                      onMouseUp={(e) => {
-                        e.stopPropagation()
-                        if (props.sessionID && index() > 0) {
-                          void sdk.client.session.queuedReorder({
-                            sessionID: props.sessionID,
-                            messageID: item.messageID,
-                            direction: "up",
-                          })
-                        }
-                        props.onMoveUp?.(index())
-                      }}
-                    >
-                      <text fg={isSelected() ? theme.text : theme.textMuted}>▲</text>
-                    </box>
-                    <box
-                      onMouseDown={(e) => {
-                        e.stopPropagation()
-                      }}
-                      onMouseUp={(e) => {
-                        e.stopPropagation()
-                        if (props.sessionID && index() < items().length - 1) {
-                          void sdk.client.session.queuedReorder({
-                            sessionID: props.sessionID,
-                            messageID: item.messageID,
-                            direction: "down",
-                          })
-                        }
-                        props.onMoveDown?.(index())
-                      }}
-                    >
-                      <text fg={isSelected() ? theme.text : theme.textMuted}>▼</text>
-                    </box>
-                    <box
-                      onMouseDown={(e) => {
-                        e.stopPropagation()
-                      }}
-                      onMouseUp={(e) => {
-                        e.stopPropagation()
-                        if (props.sessionID) {
-                          void sdk.client.session.queuedRemove({
-                            sessionID: props.sessionID,
-                            messageID: item.messageID,
-                          })
-                        }
-                        props.onDelete?.(item.messageID)
-                      }}
-                    >
-                      <text fg={isSelected() ? theme.text : theme.textMuted}>✕</text>
-                    </box>
+                    <text fg={theme.textMuted}>✕</text>
                   </box>
                 </box>
               )

@@ -10385,6 +10385,40 @@ export type SessionQueuedPopResponses = {
 
 export type SessionQueuedPopResponse = SessionQueuedPopResponses[keyof SessionQueuedPopResponses]
 
+export type SessionQueuedSteerData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/queued/steer"
+}
+
+export type SessionQueuedSteerErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionQueuedSteerError = SessionQueuedSteerErrors[keyof SessionQueuedSteerErrors]
+
+export type SessionQueuedSteerResponses = {
+  /**
+   * 204 No Content
+   */
+  204: void
+}
+
+export type SessionQueuedSteerResponse = SessionQueuedSteerResponses[keyof SessionQueuedSteerResponses]
+
 export type SessionCommandData = {
   body?: {
     messageID?: string

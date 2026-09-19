@@ -4310,6 +4310,38 @@ export class Session2 extends HeyApiClient {
   }
 
   /**
+   * Steer next queued prompt
+   *
+   * Interrupt the active session and immediately run the next queued prompt.
+   */
+  public queuedSteer<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<void, SessionQueuedPopErrors, ThrowOnError>({
+      url: "/session/{sessionID}/queued/steer",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
    * Send command
    *
    * Send a new command to a session for execution by the AI assistant.

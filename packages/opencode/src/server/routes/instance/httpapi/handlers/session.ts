@@ -330,9 +330,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       return HttpApiSchema.NoContent.make()
     })
 
-    const queued = Effect.fn("SessionHttpApi.queued")(function* (ctx: {
-      params: { sessionID: SessionID }
-    }) {
+    const queued = Effect.fn("SessionHttpApi.queued")(function* (ctx: { params: { sessionID: SessionID } }) {
       yield* requireSession(ctx.params.sessionID)
       return yield* promptSvc.getQueued(ctx.params.sessionID)
     })
@@ -355,11 +353,15 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       return HttpApiSchema.NoContent.make()
     })
 
-    const queuedPop = Effect.fn("SessionHttpApi.queuedPop")(function* (ctx: {
-      params: { sessionID: SessionID }
-    }) {
+    const queuedPop = Effect.fn("SessionHttpApi.queuedPop")(function* (ctx: { params: { sessionID: SessionID } }) {
       yield* requireSession(ctx.params.sessionID)
       return yield* promptSvc.popQueued(ctx.params.sessionID)
+    })
+
+    const queuedSteer = Effect.fn("SessionHttpApi.queuedSteer")(function* (ctx: { params: { sessionID: SessionID } }) {
+      yield* requireSession(ctx.params.sessionID)
+      yield* promptSvc.steerQueued(ctx.params.sessionID)
+      return HttpApiSchema.NoContent.make()
     })
 
     const command = Effect.fn("SessionHttpApi.command")(function* (ctx: {
@@ -468,6 +470,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       .handle("queuedRemove", queuedRemove)
       .handle("queuedReorder", queuedReorder)
       .handle("queuedPop", queuedPop)
+      .handle("queuedSteer", queuedSteer)
       .handle("command", command)
       .handle("shell", shell)
       .handle("revert", revert)

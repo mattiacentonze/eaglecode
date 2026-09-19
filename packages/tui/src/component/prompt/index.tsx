@@ -392,7 +392,9 @@ export function Prompt(props: PromptProps) {
         name: "session.interrupt",
         category: "Session",
         hidden: true,
-        enabled: status().type !== "idle",
+        enabled:
+          status().type !== "idle" ||
+          (props.sessionID ? (sync.data.queued?.[props.sessionID]?.length ?? 0) > 0 : false),
         run: () => {
           if (auto()?.visible) return
           if (!input.focused) return
@@ -402,6 +404,19 @@ export function Prompt(props: PromptProps) {
             return
           }
           if (!props.sessionID) return
+
+          const queuedCount = sync.data.queued?.[props.sessionID]?.length ?? 0
+          if (queuedCount > 0) {
+            void sdk.client.session.queuedSteer({ sessionID: props.sessionID })
+            setStore("interrupt", 0)
+            toast.show({
+              message: "Interrupting to submit queued message immediately",
+              variant: "info",
+              duration: 3000,
+            })
+            dialog.clear()
+            return
+          }
 
           setStore("interrupt", store.interrupt + 1)
 
@@ -1456,6 +1471,20 @@ export function Prompt(props: PromptProps) {
                   e.preventDefault()
                   return
                 }
+                if (e.name === "escape") {
+                  const q = props.sessionID ? (sync.data.queued?.[props.sessionID] ?? []) : []
+                  if (q.length > 0) {
+                    e.preventDefault()
+                    void sdk.client.session.queuedSteer({ sessionID: props.sessionID! })
+                    setStore("interrupt", 0)
+                    toast.show({
+                      message: "Interrupting to submit queued message immediately",
+                      variant: "info",
+                      duration: 3000,
+                    })
+                    return
+                  }
+                }
                 if ((e.meta || e.option) && (e.name === "up" || e.name === "k")) {
                   const q = props.sessionID ? (sync.data.queued?.[props.sessionID] ?? []) : []
                   if (q.length > 0) {
@@ -1468,7 +1497,8 @@ export function Prompt(props: PromptProps) {
               onSubmit={() => {
                 // IME: double-defer so the last composed character (e.g. Korean
                 // hangul) is flushed to plainText before we read it for submission.
-                setTimeout(() => setTimeout(() => submit(true), 0), 0)
+                const force = status().type === "idle"
+                setTimeout(() => setTimeout(() => submit(force), 0), 0)
               }}
               onPaste={async (event: PasteEvent) => {
                 if (props.disabled) {

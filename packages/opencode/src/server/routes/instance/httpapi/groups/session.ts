@@ -112,6 +112,7 @@ export const SessionPaths = {
   queuedRemove: `${root}/:sessionID/queued/remove`,
   queuedReorder: `${root}/:sessionID/queued/reorder`,
   queuedPop: `${root}/:sessionID/queued/pop`,
+  queuedSteer: `${root}/:sessionID/queued/steer`,
   command: `${root}/:sessionID/command`,
   shell: `${root}/:sessionID/shell`,
   revert: `${root}/:sessionID/revert`,
@@ -406,6 +407,18 @@ export const SessionApi = HttpApi.make("session")
             identifier: "session.queued_pop",
             summary: "Pop last queued prompt",
             description: "Pop the last queued prompt from the session queue.",
+          }),
+        ),
+        HttpApiEndpoint.post("queuedSteer", SessionPaths.queuedSteer, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: HttpApiSchema.NoContent,
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.queued_steer",
+            summary: "Steer next queued prompt",
+            description: "Interrupt the active session and immediately run the next queued prompt.",
           }),
         ),
         HttpApiEndpoint.post("command", SessionPaths.command, {
