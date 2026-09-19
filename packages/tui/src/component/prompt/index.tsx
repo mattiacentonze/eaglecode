@@ -1506,6 +1506,15 @@ export function Prompt(props: PromptProps) {
               }}
               onCursorChange={() => setCursorVersion((value) => value + 1)}
               onKeyDown={(e: KeyEvent) => {
+                const alt = e.option || (e as { alt?: boolean }).alt
+                if (
+                  (e.name === "return" && (e.shift || alt || e.ctrl)) ||
+                  e.name === "linefeed"
+                ) {
+                  e.preventDefault()
+                  input.newLine()
+                  return
+                }
                 if (props.disabled) {
                   e.preventDefault()
                   return

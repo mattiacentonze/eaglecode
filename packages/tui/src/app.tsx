@@ -196,7 +196,11 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
               targetFps: 60,
               gatherStats: false,
               exitOnCtrlC: false,
-              useKittyKeyboard: {},
+              useKittyKeyboard: {
+                disambiguate: true,
+                alternateKeys: true,
+                allKeysAsEscapes: true,
+              },
               autoFocus: false,
               openConsoleOnError: false,
               useMouse: !Flag.OPENCODE_DISABLE_MOUSE && input.config.mouse,
