@@ -8,10 +8,14 @@ import { DialogVariant } from "./dialog-variant"
 import * as fuzzysort from "fuzzysort"
 import { useConnected } from "./use-connected"
 import { useSync } from "../context/sync"
+import { useTheme } from "../context/theme"
+import { TextAttributes } from "@opentui/core"
+import { getProviderColor, getProviderGutter } from "../util/provider-color"
 
 export function DialogModel(props: { providerID?: string }) {
   const local = useLocal()
   const sync = useSync()
+  const { theme } = useTheme()
   const dialog = useDialog()
   const [query, setQuery] = createSignal("")
 
@@ -78,6 +82,13 @@ export function DialogModel(props: { providerID?: string }) {
               ? "(Favorite)"
               : undefined,
             category: connected() ? provider.name : undefined,
+            categoryView: connected() ? (
+              <box flexDirection="row" gap={1} alignItems="center">
+                <text fg={getProviderColor(provider.id) ?? theme.primary}>●</text>
+                <text fg={theme.text} attributes={TextAttributes.BOLD}>{provider.name}</text>
+              </box>
+            ) : undefined,
+            gutter: () => <text fg={getProviderColor(provider.id) ?? theme.textMuted}>●</text>,
             disabled: provider.id === "opencode" && model.includes("-nano"),
             footer: info.cost?.input === 0 && provider.id === "opencode" ? "Free" : undefined,
             onSelect() {

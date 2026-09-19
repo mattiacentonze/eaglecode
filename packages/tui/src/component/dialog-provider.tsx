@@ -15,6 +15,7 @@ import { isConsoleManagedProvider } from "../util/provider-origin"
 import { useConnected } from "./use-connected"
 import { useBindings } from "../keymap"
 import { useClipboard } from "../context/clipboard"
+import { getProviderColor } from "../util/provider-color"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
   opencode: 0,
@@ -33,6 +34,7 @@ type ProviderOptionBase = {
   value: string
   description?: string
   category: string
+  gutter?: () => import("solid-js").JSX.Element
 }
 
 type ProviderOption =
@@ -58,6 +60,7 @@ export function providerOptions(list: { id: string; name: string }[]): ProviderO
         title: provider.name,
         value: provider.id,
         providerID: provider.id,
+        gutter: () => <text fg={getProviderColor(provider.id)}>●</text>,
         description: {
           opencode: "(Recommended)",
           anthropic: "(API key)",
