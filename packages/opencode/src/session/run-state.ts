@@ -17,6 +17,8 @@ export interface Interface {
     work: Effect.Effect<SessionV1.WithParts>,
   ) => Effect.Effect<SessionV1.WithParts>
   readonly isBusy: (sessionID: SessionID) => Effect.Effect<boolean>
+  readonly phase: (sessionID: SessionID) => Effect.Effect<Runner.Phase>
+  readonly setPhase: (sessionID: SessionID, phase: Runner.Phase) => Effect.Effect<void>
   readonly startShell: (
     sessionID: SessionID,
     onInterrupt: Effect.Effect<SessionV1.WithParts>,
@@ -63,6 +65,7 @@ const layer = Layer.effect(
           yield* status.set(sessionID, { type: "idle" })
         }),
         onBusy: status.set(sessionID, { type: "busy" }),
+        onPhase: (_phase) => Effect.void,
         onInterrupt,
       })
       data.runners.set(sessionID, next)
@@ -100,6 +103,23 @@ const layer = Layer.effect(
       return Boolean(existing?.busy)
     })
 
+    const phase = Effect.fn("SessionRunState.phase")(function* (sessionID: SessionID) {
+      const data = yield* InstanceState.get(state)
+      const existing = data.runners.get(sessionID)
+      return existing?.phase ?? "idle"
+    })
+
+    const setPhase = Effect.fn("SessionRunState.setPhase")(function* (
+      sessionID: SessionID,
+      nextPhase: Runner.Phase,
+    ) {
+      const data = yield* InstanceState.get(state)
+      const existing = data.runners.get(sessionID)
+      if (existing) {
+        yield* existing.setPhase(nextPhase)
+      }
+    })
+
     const startShell = Effect.fn("SessionRunState.startShell")(function* (
       sessionID: SessionID,
       onInterrupt: Effect.Effect<SessionV1.WithParts>,
@@ -111,7 +131,7 @@ const layer = Layer.effect(
         .pipe(Effect.catchTag("RunnerBusy", () => Effect.fail(busyError(sessionID))))
     })
 
-    return Service.of({ assertNotBusy, isBusy, cancel, ensureRunning, startShell })
+    return Service.of({ assertNotBusy, isBusy, phase, setPhase, cancel, ensureRunning, startShell })
   }),
 )
 

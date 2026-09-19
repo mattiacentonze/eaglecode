@@ -1,8 +1,12 @@
 import { Cause, Deferred, Effect, Exit, Fiber, Latch, Schema, Scope, SynchronizedRef } from "effect"
 
+export type Phase = "idle" | "generating" | "betweenTurns"
+
 export interface Runner<A, E = never> {
   readonly state: State<A, E>
   readonly busy: boolean
+  readonly phase: Phase
+  readonly setPhase: (phase: Phase) => Effect.Effect<void>
   readonly ensureRunning: (work: Effect.Effect<A, E>) => Effect.Effect<A, E>
   readonly startShell: (work: Effect.Effect<A, E>, ready?: Latch.Latch) => Effect.Effect<A, E | Busy>
   readonly cancel: Effect.Effect<void>
@@ -42,15 +46,29 @@ export const make = <A, E = never>(
     onIdle?: Effect.Effect<void>
     onBusy?: Effect.Effect<void>
     onInterrupt?: Effect.Effect<A, E>
+    onPhase?: (phase: Phase) => Effect.Effect<void>
   },
 ): Runner<A, E> => {
   const ref = SynchronizedRef.makeUnsafe<State<A, E>>({ _tag: "Idle" })
+  const phaseRef = SynchronizedRef.makeUnsafe<Phase>("idle")
   const idle = opts?.onIdle ?? Effect.void
   const onBusy = opts?.onBusy ?? Effect.void
   const onInterrupt = opts?.onInterrupt
+  const onPhase = opts?.onPhase
   let ids = 0
 
   const state = () => SynchronizedRef.getUnsafe(ref)
+  const getPhase = () => SynchronizedRef.getUnsafe(phaseRef)
+
+  const setPhase = (nextPhase: Phase): Effect.Effect<void> =>
+    SynchronizedRef.modifyEffect(
+      phaseRef,
+      Effect.fnUntraced(function* (current) {
+        if (current === nextPhase) return [Effect.void, current] as const
+        const notify = onPhase ? onPhase(nextPhase) : Effect.void
+        return [notify, nextPhase] as const
+      }),
+    ).pipe(Effect.flatten)
   const next = () => {
     ids += 1
     return ids
@@ -73,7 +91,10 @@ export const make = <A, E = never>(
       (st) =>
         [
           Effect.gen(function* () {
-            if (st._tag === "Running" && st.run.id === id) yield* idle
+            if (st._tag === "Running" && st.run.id === id) {
+              yield* setPhase("idle")
+              yield* idle
+            }
             yield* complete(done, exit)
           }),
           st._tag === "Running" && st.run.id === id ? ({ _tag: "Idle" } as const) : st,
@@ -82,6 +103,7 @@ export const make = <A, E = never>(
 
   const startRun = (work: Effect.Effect<A, E>, done: Deferred.Deferred<A, E | Cancelled>) =>
     Effect.gen(function* () {
+      yield* setPhase("generating")
       const id = next()
       const fiber = yield* work.pipe(
         Effect.onExit((exit) => finishRun(id, done, exit)),
@@ -95,7 +117,7 @@ export const make = <A, E = never>(
       ref,
       Effect.fnUntraced(function* (st) {
         if (st._tag === "Shell" && st.shell.id === id) {
-          return [idle, { _tag: "Idle" }] as const
+          return [setPhase("idle").pipe(Effect.andThen(idle)), { _tag: "Idle" }] as const
         }
         if (st._tag === "ShellThenRun" && st.shell.id === id) {
           const run = yield* startRun(st.run.work, st.run.done)
@@ -177,6 +199,7 @@ export const make = <A, E = never>(
           Effect.gen(function* () {
             yield* Fiber.interrupt(st.run.fiber)
             yield* Deferred.fail(st.run.done, new Cancelled()).pipe(Effect.asVoid)
+            yield* setPhase("idle")
             yield* idleIfCurrent()
           }),
           { _tag: "Idle" } as const,
@@ -185,6 +208,7 @@ export const make = <A, E = never>(
         return [
           Effect.gen(function* () {
             yield* stopShell(st.shell)
+            yield* setPhase("idle")
             yield* idleIfCurrent()
           }),
           { _tag: "Idle" } as const,
@@ -194,6 +218,7 @@ export const make = <A, E = never>(
           Effect.gen(function* () {
             yield* stopShell(st.shell)
             yield* Deferred.fail(st.run.done, new Cancelled()).pipe(Effect.asVoid)
+            yield* setPhase("idle")
             yield* idleIfCurrent()
           }),
           { _tag: "Idle" } as const,
@@ -208,6 +233,10 @@ export const make = <A, E = never>(
     get busy() {
       return state()._tag !== "Idle"
     },
+    get phase() {
+      return getPhase()
+    },
+    setPhase,
     ensureRunning,
     startShell,
     cancel,
