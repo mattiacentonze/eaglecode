@@ -190,11 +190,8 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
     Effect.gen(function* () {
       const renderer = yield* Effect.acquireRelease(
         Effect.tryPromise({
-          try: () => {
-            if (process.stdout.isTTY) {
-              process.stdout.write("\x1b[>4;2m")
-            }
-            return createCliRenderer({
+          try: async () => {
+            const r = await createCliRenderer({
               externalOutputMode: "passthrough",
               targetFps: 60,
               gatherStats: false,
@@ -211,15 +208,19 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
                 keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
               },
             })
+            if (process.stdout.isTTY) {
+              process.stdout.write("\x1b[>4;2m")
+            }
+            return r
           },
           catch: (error) => (error instanceof Error ? error : new Error(String(error))),
         }),
         (renderer) =>
           Effect.sync(() => {
+            destroyRenderer(renderer)
             if (process.stdout.isTTY) {
               process.stdout.write("\x1b[>4m")
             }
-            destroyRenderer(renderer)
           }),
       )
       win32DisableProcessedInput()
