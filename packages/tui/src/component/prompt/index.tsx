@@ -57,6 +57,8 @@ import { usePromptWorkspace } from "./workspace"
 import { usePromptMove } from "./move"
 import { readLocalAttachment } from "./local-attachment"
 import { useLocation } from "../../context/location"
+import { Queued } from "./queued"
+import { DialogQueuedPrompts } from "../dialog-queued-prompts"
 
 registerOpencodeSpinner()
 
@@ -346,7 +348,8 @@ export function Prompt(props: PromptProps) {
         hidden: true,
         run: async () => {
           if (!input.focused) return
-          const handled = await submit(false)
+          const force = status().type === "idle"
+          const handled = await submit(force)
           if (!handled) return
 
           dialog.clear()
@@ -548,6 +551,28 @@ export function Prompt(props: PromptProps) {
           move.open()
         },
       },
+      {
+        title: "Manage queued prompts",
+        name: "session.queued_prompts",
+        category: "Session",
+        run: () => {
+          if (!props.sessionID) return
+          dialog.replace(() => (
+            <DialogQueuedPrompts
+              sessionID={props.sessionID!}
+              onEdit={(queuedItem) => {
+                input.setText(queuedItem.text)
+                setStore("prompt", {
+                  input: queuedItem.text,
+                  parts: [],
+                })
+                input.gotoBufferEnd()
+                input.focus()
+              }}
+            />
+          ))
+        },
+      },
     ].map((entry) => ({
       namespace: "palette",
       ...entry,
@@ -572,6 +597,7 @@ export function Prompt(props: PromptProps) {
       "session.interrupt",
       "workspace.set",
       "session.move",
+      "session.queued_prompts",
     ]),
   }))
 
@@ -1353,6 +1379,24 @@ export function Prompt(props: PromptProps) {
       }),
     }
   })
+  async function popLastQueuedPrompt() {
+    if (!props.sessionID) return false
+    if (store.prompt.input.trim().length > 0) return false
+    const q = sync.data.queued?.[props.sessionID] ?? []
+    if (q.length === 0) return false
+    const res = await sdk.client.session.queuedPop({ sessionID: props.sessionID })
+    if (res.error || !res.data) return false
+    const text = res.data.text ?? ""
+    input.setText(text)
+    setStore("prompt", {
+      input: text,
+      parts: [],
+    })
+    input.gotoBufferEnd()
+    input.focus()
+    return true
+  }
+
   const maxHeight = createMemo(() => tuiConfig.prompt?.max_height ?? Math.max(6, Math.floor(dimensions().height / 3)))
   const moveLabelWidth = createMemo(() => Math.max(12, Math.min(44, dimensions().width - 48)))
 
@@ -1377,6 +1421,18 @@ export function Prompt(props: PromptProps) {
             flexGrow={1}
             width="100%"
           >
+            <Queued
+              sessionID={props.sessionID}
+              onEdit={(item) => {
+                input.setText(item.text)
+                setStore("prompt", {
+                  input: item.text,
+                  parts: [],
+                })
+                input.gotoBufferEnd()
+                input.focus()
+              }}
+            />
             <textarea
               width="100%"
               placeholder={placeholderText()}
@@ -1393,10 +1449,18 @@ export function Prompt(props: PromptProps) {
                 setCursorVersion((value) => value + 1)
               }}
               onCursorChange={() => setCursorVersion((value) => value + 1)}
-              onKeyDown={(e: { preventDefault(): void }) => {
+              onKeyDown={(e: KeyEvent) => {
                 if (props.disabled) {
                   e.preventDefault()
                   return
+                }
+                if ((e.meta || e.option) && (e.name === "up" || e.name === "k")) {
+                  const q = props.sessionID ? (sync.data.queued?.[props.sessionID] ?? []) : []
+                  if (q.length > 0) {
+                    e.preventDefault()
+                    void popLastQueuedPrompt()
+                    return
+                  }
                 }
               }}
               onSubmit={() => {
