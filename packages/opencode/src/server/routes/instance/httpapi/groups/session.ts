@@ -77,6 +77,7 @@ export const PermissionResponsePayload = Schema.Struct({
 export const QueuedPromptItem = Schema.Struct({
   messageID: Schema.String,
   text: Schema.String,
+  deferred: Schema.optional(Schema.Boolean),
 })
 export const QueuedRemovePayload = Schema.Struct({
   messageID: Schema.String,

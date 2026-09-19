@@ -8,6 +8,7 @@ import { useCommandShortcut } from "../../keymap"
 export type QueuedPromptItem = {
   messageID: string
   text: string
+  deferred?: boolean
 }
 
 export type QueuedProps = {
@@ -36,8 +37,10 @@ export function Queued(props: QueuedProps) {
     return sync.data.queued?.[props.sessionID] ?? []
   })
 
-  const pendingSteers = createMemo(() => (items().length > 0 ? [items()[0]] : []))
-  const queuedFollowups = createMemo(() => (items().length > 1 ? items().slice(1) : []))
+  const deferredSteers = createMemo(() => items().filter((item) => item.deferred))
+  const nonDeferred = createMemo(() => items().filter((item) => !item.deferred))
+  const pendingSteers = createMemo(() => (nonDeferred().length > 0 ? [nonDeferred()[0]] : []))
+  const queuedFollowups = createMemo(() => (nonDeferred().length > 1 ? nonDeferred().slice(1) : []))
 
   return (
     <Show when={items().length > 0}>
@@ -60,7 +63,8 @@ export function Queued(props: QueuedProps) {
           <box flexDirection="column" gap={0} width="100%">
             <For each={pendingSteers()}>
               {(item) => {
-                const isSelected = () => selected() === 0
+                const itemIndex = () => items().findIndex((i) => i.messageID === item.messageID)
+                const isSelected = () => selected() === itemIndex()
 
                 return (
                   <box
@@ -70,7 +74,69 @@ export function Queued(props: QueuedProps) {
                     width="100%"
                     backgroundColor={isSelected() ? theme.primary : undefined}
                     onMouseDown={() => {
-                      setSelected(0)
+                      setSelected(itemIndex())
+                    }}
+                    onMouseUp={() => {
+                      if (props.sessionID) {
+                        void sdk.client.session.queuedRemove({
+                          sessionID: props.sessionID,
+                          messageID: item.messageID,
+                        })
+                      }
+                      props.onEdit?.(item)
+                    }}
+                  >
+                    <box flexDirection="row" flexGrow={1} gap={0}>
+                      <text fg={theme.textMuted}>  ↳ </text>
+                      <text fg={theme.textMuted}>{item.text}</text>
+                    </box>
+                    <box
+                      flexShrink={0}
+                      onMouseDown={(e) => {
+                        e.stopPropagation()
+                      }}
+                      onMouseUp={(e) => {
+                        e.stopPropagation()
+                        if (props.sessionID) {
+                          void sdk.client.session.queuedRemove({
+                            sessionID: props.sessionID,
+                            messageID: item.messageID,
+                          })
+                        }
+                        props.onDelete?.(item.messageID)
+                      }}
+                    >
+                      <text fg={theme.textMuted}>✕</text>
+                    </box>
+                  </box>
+                )
+              }}
+            </For>
+          </box>
+        </Show>
+
+        <Show when={deferredSteers().length > 0}>
+          <Show when={pendingSteers().length > 0}>
+            <box height={1} />
+          </Show>
+          <box flexDirection="row" paddingLeft={1} paddingRight={1}>
+            <text fg={theme.text}>• Messages to be submitted at end of turn</text>
+          </box>
+          <box flexDirection="column" gap={0} width="100%">
+            <For each={deferredSteers()}>
+              {(item) => {
+                const itemIndex = () => items().findIndex((i) => i.messageID === item.messageID)
+                const isSelected = () => selected() === itemIndex()
+
+                return (
+                  <box
+                    flexDirection="row"
+                    paddingLeft={1}
+                    paddingRight={1}
+                    width="100%"
+                    backgroundColor={isSelected() ? theme.primary : undefined}
+                    onMouseDown={() => {
+                      setSelected(itemIndex())
                     }}
                     onMouseUp={() => {
                       if (props.sessionID) {
@@ -112,14 +178,16 @@ export function Queued(props: QueuedProps) {
         </Show>
 
         <Show when={queuedFollowups().length > 0}>
-          <box height={1} />
+          <Show when={pendingSteers().length > 0 || deferredSteers().length > 0}>
+            <box height={1} />
+          </Show>
           <box flexDirection="row" paddingLeft={1} paddingRight={1}>
             <text fg={theme.text}>• Queued follow-up inputs</text>
           </box>
           <box flexDirection="column" gap={0} width="100%">
             <For each={queuedFollowups()}>
-              {(item, index) => {
-                const itemIndex = () => index() + 1
+              {(item) => {
+                const itemIndex = () => items().findIndex((i) => i.messageID === item.messageID)
                 const isSelected = () => selected() === itemIndex()
 
                 return (
