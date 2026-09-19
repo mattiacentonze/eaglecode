@@ -1551,7 +1551,8 @@ export function Prompt(props: PromptProps) {
                 const alt = e.option || (e as { alt?: boolean }).alt
                 if (
                   (e.name === "return" && (e.shift || alt || e.ctrl)) ||
-                  e.name === "linefeed"
+                  e.name === "linefeed" ||
+                  (e.name === "j" && e.ctrl)
                 ) {
                   e.preventDefault()
                   input.newLine()
