@@ -34,7 +34,7 @@ export function DialogPrompt(props: DialogPromptProps) {
     target: textareaTarget,
     enabled: textareaTarget() !== undefined && !props.busy,
     // Dialog form semantics must win over the global managed textarea input layer.
-    priority: 1,
+    priority: 20,
     commands: [
       {
         name: "dialog.prompt.submit",
