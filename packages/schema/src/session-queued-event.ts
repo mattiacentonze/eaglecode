@@ -7,6 +7,7 @@ import { SessionID } from "./session-id"
 export const QueuedPrompt = Schema.Struct({
   messageID: Schema.String,
   text: Schema.String,
+  deferred: Schema.optional(Schema.Boolean),
 })
 export type QueuedPrompt = Schema.Schema.Type<typeof QueuedPrompt>
 

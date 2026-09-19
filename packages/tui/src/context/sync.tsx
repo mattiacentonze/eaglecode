@@ -91,7 +91,7 @@ export const {
         [sessionID: string]: SessionStatus
       }
       queued: {
-        [sessionID: string]: Array<{ messageID: string; text: string }>
+        [sessionID: string]: Array<{ messageID: string; text: string; deferred?: boolean }>
       }
       session_diff: {
         [sessionID: string]: SnapshotFileDiff[]

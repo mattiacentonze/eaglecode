@@ -22,6 +22,7 @@ import { UI } from "../ui"
 import { effectCmd } from "../effect-cmd"
 import { EOL } from "os"
 import { Filesystem } from "@/util/filesystem"
+import { Process } from "@/util/process"
 import { createOpencodeClient, type OpencodeClient, type ToolPart } from "@opencode-ai/sdk/v2"
 import { FormatError, FormatUnknownError } from "../error"
 import { INTERACTIVE_INPUT_ERROR, resolveInteractiveStdin } from "./run/runtime.stdin"
@@ -153,6 +154,11 @@ export const RunCommand = effectCmd({
         alias: ["s"],
         describe: "session id to continue",
         type: "string",
+      })
+      .option("branch", {
+        alias: ["b"],
+        type: "string",
+        describe: "git branch to check out before starting",
       })
       .option("fork", {
         describe: "fork the session before continuing (requires --continue or --session)",
@@ -343,6 +349,21 @@ export const RunCommand = effectCmd({
           process.exit(1)
         }
       })()
+
+      if (args.branch) {
+        if (args.branch.startsWith("-")) {
+          UI.error(`Invalid branch name "${args.branch}": branch name cannot start with "-"`)
+          process.exit(1)
+        }
+        const checkoutTarget = directory ?? root
+        const checkout = await Process.run(["git", "checkout", args.branch], { cwd: checkoutTarget, nothrow: true })
+        if (checkout.code !== 0) {
+          const err = checkout.stderr.toString().trim()
+          UI.error(`Failed to checkout branch "${args.branch}": ${err || "git checkout failed"}`)
+          process.exit(1)
+        }
+      }
+
       const attachHeaders = args.attach
         ? ServerAuth.headers({ password: args.password, username: args.username })
         : undefined
@@ -970,6 +991,7 @@ type MiniCommandInput = {
   username?: string
   continue?: boolean
   session?: string
+  branch?: string
   fork?: boolean
   model?: string
   agent?: string
@@ -988,6 +1010,7 @@ export async function runMini(input: MiniCommandInput) {
     command: undefined,
     continue: input.continue,
     session: input.session,
+    branch: input.branch,
     fork: input.fork,
     share: undefined,
     model: input.model,

@@ -107,11 +107,12 @@ export interface Interface {
   readonly shell: (input: ShellInput) => Effect.Effect<SessionV1.WithParts, Session.BusyError>
   readonly command: (input: CommandInput) => Effect.Effect<SessionV1.WithParts, Image.Error>
   readonly resolvePromptParts: (template: string) => Effect.Effect<PromptInput["parts"]>
-  readonly getQueued: (sessionID: SessionID) => Effect.Effect<Array<{ messageID: string; text: string }>>
+  readonly getQueued: (sessionID: SessionID) => Effect.Effect<Array<{ messageID: string; text: string; deferred?: boolean }>>
   readonly removeQueued: (sessionID: SessionID, messageID: string) => Effect.Effect<void>
   readonly reorderQueued: (sessionID: SessionID, messageID: string, direction: "up" | "down") => Effect.Effect<void>
   readonly popQueued: (sessionID: SessionID) => Effect.Effect<{ text: string }>
   readonly steerQueued: (sessionID: SessionID) => Effect.Effect<void>
+  readonly deferQueued: (sessionID: SessionID, messageID?: string) => Effect.Effect<void>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/SessionPrompt") {}
@@ -163,6 +164,7 @@ const layer = Layer.effect(
         prompts: q.map((input) => ({
           messageID: input.messageID ?? MessageID.ascending(),
           text: extractPromptText(input.parts),
+          deferred: input.deferred ?? false,
         })),
       })
     }
@@ -185,6 +187,7 @@ const layer = Layer.effect(
       return q.map((input) => ({
         messageID: input.messageID ?? MessageID.ascending(),
         text: extractPromptText(input.parts),
+        deferred: input.deferred ?? false,
       }))
     })
 
@@ -233,6 +236,20 @@ const layer = Layer.effect(
         return { text }
       }
       return { text: "" }
+    })
+
+    const deferQueued = Effect.fn("SessionPrompt.deferQueued")(function* (sessionID: SessionID, messageID?: string) {
+      yield* Effect.logInfo("deferQueued", { "session.id": sessionID, messageID })
+      const q = promptQueue.get(sessionID)
+      if (q && q.length > 0) {
+        if (messageID) {
+          const item = q.find((input) => input.messageID === messageID)
+          if (item) item.deferred = true
+        } else {
+          q[0].deferred = true
+        }
+        yield* publishQueued(sessionID)
+      }
     })
 
     const steerQueued = Effect.fn("SessionPrompt.steerQueued")(function* (sessionID: SessionID) {
@@ -1476,13 +1493,16 @@ const layer = Layer.effect(
       )
       const q = promptQueue.get(input.sessionID)
       if (q && q.length > 0) {
-        const next = q.shift()!
+        const deferredIndex = q.findIndex((item) => item.deferred)
+        const next = deferredIndex !== -1 ? q.splice(deferredIndex, 1)[0] : q.shift()!
         if (q.length === 0) promptQueue.delete(input.sessionID)
         yield* publishQueued(input.sessionID)
         yield* Effect.logInfo("draining next enqueued prompt", {
           "session.id": input.sessionID,
           remaining: q.length,
+          wasDeferred: next.deferred ?? false,
         })
+        delete next.deferred
         yield* prompt({ ...next, force: true }).pipe(Effect.forkIn(scope))
       }
       return result
@@ -1634,6 +1654,7 @@ const layer = Layer.effect(
       reorderQueued,
       popQueued,
       steerQueued,
+      deferQueued,
     })
   }),
 )
@@ -1657,6 +1678,7 @@ export const PromptInput = Schema.Struct({
   system: Schema.optional(Schema.String),
   variant: Schema.optional(Schema.String),
   force: Schema.optional(Schema.Boolean),
+  deferred: Schema.mutableKey(Schema.optional(Schema.Boolean)),
   parts: Schema.Array(
     Schema.Union([
       SessionV1.TextPartInput,
