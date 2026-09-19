@@ -661,6 +661,12 @@ export function Prompt(props: PromptProps) {
       return
     }
 
+    // Do not steal focus if another non-editor element (e.g. chat messages scrollbox) is focused.
+    const active = renderer.currentFocusedRenderable
+    if (active && active !== input && !(active.isDestroyed ?? false)) {
+      return
+    }
+
     // Slot/plugin updates can remount the background prompt while a dialog is open.
     // Keep focus with the dialog and let the prompt reclaim it after the dialog closes.
     if (!input.focused) input.focus()
