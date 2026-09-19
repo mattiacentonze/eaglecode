@@ -299,3 +299,169 @@ test("home and end keys resolve to session.first/last when unfocused and input.b
     app.renderer.destroy()
   }
 })
+
+test("priority layers: autocomplete (30), dialog (20), history (15) win over input layer (10)", async () => {
+  let textareaRef: TextareaRenderable | undefined
+  let keymapRef: ReturnType<typeof createDefaultOpenTuiKeymap> | undefined
+  let lastExecuted = ""
+  let atTopBoundary = true
+  let autocompleteVisible = false
+  let dialogVisible = false
+
+  function Harness() {
+    const renderer = useRenderer()
+    const keymap = createDefaultOpenTuiKeymap(renderer)
+    keymapRef = keymap
+    const config = createResolvedKeymapConfig()
+    const offKeymap = registerOpencodeKeymap(keymap, renderer, config)
+
+    // Base input layer commands registration
+    const offInput = keymap.registerLayer({
+      commands: [
+        {
+          name: "input.move.up",
+          run() {
+            lastExecuted = "input.move.up"
+          },
+        },
+        {
+          name: "input.move.down",
+          run() {
+            lastExecuted = "input.move.down"
+          },
+        },
+        {
+          name: "input.submit",
+          run() {
+            lastExecuted = "input.submit"
+          },
+        },
+      ],
+    })
+
+    // History layer with priority 15
+    const offHistory = keymap.registerLayer({
+      priority: 15,
+      enabled: () => !autocompleteVisible && !dialogVisible,
+      commands: [
+        {
+          name: "prompt.history.previous",
+          run() {
+            if (!atTopBoundary) return false
+            lastExecuted = "prompt.history.previous"
+          },
+        },
+      ],
+      bindings: [{ key: "up", cmd: "prompt.history.previous" }],
+    })
+
+    // Dialog layer with priority 20
+    const offDialog = keymap.registerLayer({
+      priority: 20,
+      enabled: () => dialogVisible,
+      commands: [
+        {
+          name: "dialog.submit",
+          run() {
+            lastExecuted = "dialog.submit"
+          },
+        },
+      ],
+      bindings: [{ key: "return", cmd: "dialog.submit" }],
+    })
+
+    // Autocomplete layer with priority 30
+    const offAutocomplete = keymap.registerLayer({
+      priority: 30,
+      enabled: () => autocompleteVisible,
+      commands: [
+        {
+          name: "prompt.autocomplete.prev",
+          run() {
+            lastExecuted = "prompt.autocomplete.prev"
+          },
+        },
+        {
+          name: "prompt.autocomplete.select",
+          run() {
+            lastExecuted = "prompt.autocomplete.select"
+          },
+        },
+      ],
+      bindings: [
+        { key: "up", cmd: "prompt.autocomplete.prev" },
+        { key: "return", cmd: "prompt.autocomplete.select" },
+      ],
+    })
+
+    onCleanup(() => {
+      offAutocomplete()
+      offDialog()
+      offHistory()
+      offInput()
+      offKeymap()
+    })
+
+    return (
+      <OpencodeKeymapProvider keymap={keymap}>
+        <box>
+          <textarea ref={(el) => (textareaRef = el)} />
+        </box>
+      </OpencodeKeymapProvider>
+    )
+  }
+
+  const app = await testRender(() => <Harness />)
+  try {
+    function pressKey(name: string) {
+      lastExecuted = ""
+      app.renderer.keyInput.emit("keypress", {
+        name,
+        sequence: name === "return" ? "\r" : name,
+        ctrl: false,
+        alt: false,
+        meta: false,
+        shift: false,
+        defaultPrevented: false,
+        propagationStopped: false,
+        preventDefault() {
+          this.defaultPrevented = true
+        },
+        stopPropagation() {
+          this.propagationStopped = true
+        },
+      } as any)
+    }
+
+    textareaRef?.focus()
+
+    // 1. In textarea, at top boundary: Up triggers prompt.history.previous
+    atTopBoundary = true
+    pressKey("up")
+    expect(lastExecuted).toBe("prompt.history.previous")
+
+    // 2. In textarea, NOT at top boundary: Up falls through to input.move.up
+    atTopBoundary = false
+    pressKey("up")
+    expect(lastExecuted).toBe("input.move.up")
+
+    // 3. Normal return submits input
+    pressKey("return")
+    expect(lastExecuted).toBe("input.submit")
+
+    // 4. When dialog is open (priority 20): return triggers dialog.submit instead of input.submit
+    dialogVisible = true
+    pressKey("return")
+    expect(lastExecuted).toBe("dialog.submit")
+    dialogVisible = false
+
+    // 5. When autocomplete is open (priority 30): up and return trigger autocomplete commands
+    autocompleteVisible = true
+    pressKey("up")
+    expect(lastExecuted).toBe("prompt.autocomplete.prev")
+    pressKey("return")
+    expect(lastExecuted).toBe("prompt.autocomplete.select")
+  } finally {
+    app.renderer.destroy()
+  }
+})

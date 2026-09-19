@@ -581,6 +581,7 @@ export function Autocomplete(props: {
   useBindings(() => ({
     target: props.input,
     enabled: () => Boolean(store.visible),
+    priority: 30,
     commands: [
       {
         name: "prompt.autocomplete.prev",
