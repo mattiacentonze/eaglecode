@@ -59,7 +59,7 @@ export function DialogQueuedPrompts(props: DialogQueuedPromptsProps) {
 
   useBindings(() => ({
     enabled: true,
-    priority: 1,
+    priority: 20,
     commands: [
       {
         name: "dialog.queued.up",
@@ -105,16 +105,16 @@ export function DialogQueuedPrompts(props: DialogQueuedPromptsProps) {
       },
     ],
     bindings: [
-      { key: "up", command: "dialog.queued.up" },
-      { key: "down", command: "dialog.queued.down" },
-      { key: "k", command: "dialog.queued.up" },
-      { key: "j", command: "dialog.queued.down" },
-      { key: "return", command: "dialog.queued.edit" },
-      { key: "ctrl+d", command: "dialog.queued.delete" },
-      { key: "d", command: "dialog.queued.delete" },
-      { key: "alt+up", command: "dialog.queued.move_up" },
-      { key: "alt+down", command: "dialog.queued.move_down" },
-      { key: "escape", command: "dialog.queued.close" },
+      { key: "up", cmd: "dialog.queued.up" },
+      { key: "down", cmd: "dialog.queued.down" },
+      { key: "k", cmd: "dialog.queued.up" },
+      { key: "j", cmd: "dialog.queued.down" },
+      { key: "return", cmd: "dialog.queued.edit" },
+      { key: "ctrl+d", cmd: "dialog.queued.delete" },
+      { key: "d", cmd: "dialog.queued.delete" },
+      { key: "alt+up", cmd: "dialog.queued.move_up" },
+      { key: "alt+down", cmd: "dialog.queued.move_down" },
+      { key: "escape", cmd: "dialog.queued.close" },
     ],
   }))
 
