@@ -98,7 +98,7 @@
     },
     "packages/cli": {
       "name": "@opencode-ai/cli",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "bin": {
         "lildax": "./bin/lildax.cjs",
       },
@@ -325,7 +325,6 @@
         "@npmcli/arborist": "9.4.0",
         "@npmcli/config": "10.8.1",
         "@opencode-ai/effect-drizzle-sqlite": "workspace:*",
-        "@opencode-ai/effect-sqlite-node": "workspace:*",
         "@opencode-ai/llm": "workspace:*",
         "@opencode-ai/plugin": "workspace:*",
         "@opencode-ai/schema": "workspace:*",
@@ -451,18 +450,6 @@
         "@typescript/native-preview": "catalog:",
       },
     },
-    "packages/effect-sqlite-node": {
-      "name": "@opencode-ai/effect-sqlite-node",
-      "version": "0.1.0",
-      "dependencies": {
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "@tsconfig/bun": "catalog:",
-        "@types/node": "catalog:",
-        "@typescript/native-preview": "catalog:",
-      },
-    },
     "packages/enterprise": {
       "name": "@opencode-ai/enterprise",
       "version": "0.1.0",
@@ -563,7 +550,7 @@
     },
     "packages/opencode": {
       "name": "opencode",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "bin": {
         "opencode": "./bin/opencode",
       },
@@ -754,20 +741,6 @@
         "@types/semver": "^7.5.8",
       },
     },
-    "packages/sdk-next": {
-      "name": "@opencode-ai/sdk-next",
-      "dependencies": {
-        "@opencode-ai/client": "workspace:*",
-        "@opencode-ai/core": "workspace:*",
-        "@opencode-ai/server": "workspace:*",
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "@tsconfig/bun": "catalog:",
-        "@types/bun": "catalog:",
-        "@typescript/native-preview": "catalog:",
-      },
-    },
     "packages/sdk/js": {
       "name": "@opencode-ai/sdk",
       "version": "1.18.31",
@@ -941,7 +914,7 @@
     },
     "packages/tui": {
       "name": "@opencode-ai/tui",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@opencode-ai/core": "workspace:*",
         "@opencode-ai/plugin": "workspace:*",
@@ -1967,8 +1940,6 @@
 
     "@opencode-ai/effect-drizzle-sqlite": ["@opencode-ai/effect-drizzle-sqlite@workspace:packages/effect-drizzle-sqlite"],
 
-    "@opencode-ai/effect-sqlite-node": ["@opencode-ai/effect-sqlite-node@workspace:packages/effect-sqlite-node"],
-
     "@opencode-ai/enterprise": ["@opencode-ai/enterprise@workspace:packages/enterprise"],
 
     "@opencode-ai/function": ["@opencode-ai/function@workspace:packages/function"],
@@ -1988,8 +1959,6 @@
     "@opencode-ai/script": ["@opencode-ai/script@workspace:packages/script"],
 
     "@opencode-ai/sdk": ["@opencode-ai/sdk@workspace:packages/sdk/js"],
-
-    "@opencode-ai/sdk-next": ["@opencode-ai/sdk-next@workspace:packages/sdk-next"],
 
     "@opencode-ai/server": ["@opencode-ai/server@workspace:packages/server"],
 
