@@ -34,6 +34,7 @@ import { SessionProcessor } from "./processor"
 import { Tool } from "@/tool/tool"
 import { Permission } from "@/permission"
 import { SessionStatus } from "./status"
+import { SessionQueuedEvent } from "@opencode-ai/schema/session-queued-event"
 import { LLM } from "./llm"
 import { Shell } from "@opencode-ai/core/shell"
 import { ShellID } from "@/tool/shell/id"
@@ -106,6 +107,10 @@ export interface Interface {
   readonly shell: (input: ShellInput) => Effect.Effect<SessionV1.WithParts, Session.BusyError>
   readonly command: (input: CommandInput) => Effect.Effect<SessionV1.WithParts, Image.Error>
   readonly resolvePromptParts: (template: string) => Effect.Effect<PromptInput["parts"]>
+  readonly getQueued: (sessionID: SessionID) => Effect.Effect<Array<{ messageID: string; text: string }>>
+  readonly removeQueued: (sessionID: SessionID, messageID: string) => Effect.Effect<void>
+  readonly reorderQueued: (sessionID: SessionID, messageID: string, direction: "up" | "down") => Effect.Effect<void>
+  readonly popQueued: (sessionID: SessionID) => Effect.Effect<{ text: string }>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/SessionPrompt") {}
@@ -142,6 +147,20 @@ const layer = Layer.effect(
     const database = yield* Database.Service
     const { db } = database
     const promptQueue = new Map<SessionID, PromptInput[]>()
+
+    const extractPromptText = (parts?: PromptInput["parts"]): string =>
+      parts?.filter((p) => p.type === "text").map((p) => p.text).join(" ").trim() ?? ""
+
+    const publishQueued = (sessionID: SessionID) => {
+      const q = promptQueue.get(sessionID) ?? []
+      return events.publish(SessionQueuedEvent.Queued, {
+        sessionID,
+        prompts: q.map((input) => ({
+          messageID: input.messageID ?? MessageID.ascending(),
+          text: extractPromptText(input.parts),
+        })),
+      })
+    }
     const ops = Effect.fn("SessionPrompt.ops")(function* () {
       return {
         cancel: (sessionID: SessionID) => cancel(sessionID),
@@ -154,6 +173,61 @@ const layer = Layer.effect(
       yield* Effect.logInfo("cancel", { "session.id": sessionID })
       promptQueue.delete(sessionID)
       yield* state.cancel(sessionID)
+    })
+
+    const getQueued = Effect.fn("SessionPrompt.getQueued")(function* (sessionID: SessionID) {
+      const q = promptQueue.get(sessionID) ?? []
+      return q.map((input) => ({
+        messageID: input.messageID ?? MessageID.ascending(),
+        text: extractPromptText(input.parts),
+      }))
+    })
+
+    const removeQueued = Effect.fn("SessionPrompt.removeQueued")(function* (sessionID: SessionID, messageID: string) {
+      const q = promptQueue.get(sessionID)
+      if (q) {
+        const filtered = q.filter((input) => input.messageID !== messageID)
+        if (filtered.length === 0) {
+          promptQueue.delete(sessionID)
+        } else {
+          promptQueue.set(sessionID, filtered)
+        }
+        yield* publishQueued(sessionID)
+      }
+    })
+
+    const reorderQueued = Effect.fn("SessionPrompt.reorderQueued")(function* (
+      sessionID: SessionID,
+      messageID: string,
+      direction: "up" | "down",
+    ) {
+      const q = promptQueue.get(sessionID)
+      if (q) {
+        const index = q.findIndex((input) => input.messageID === messageID)
+        if (index !== -1) {
+          const targetIndex = direction === "up" ? index - 1 : index + 1
+          if (targetIndex >= 0 && targetIndex < q.length) {
+            const temp = q[index]
+            q[index] = q[targetIndex]
+            q[targetIndex] = temp
+            yield* publishQueued(sessionID)
+          }
+        }
+      }
+    })
+
+    const popQueued = Effect.fn("SessionPrompt.popQueued")(function* (sessionID: SessionID) {
+      const q = promptQueue.get(sessionID)
+      if (q && q.length > 0) {
+        const last = q.pop()!
+        if (q.length === 0) {
+          promptQueue.delete(sessionID)
+        }
+        yield* publishQueued(sessionID)
+        const text = extractPromptText(last.parts)
+        return { text }
+      }
+      return { text: "" }
     })
 
     const resolvePromptParts = Effect.fn("SessionPrompt.resolvePromptParts")(function* (template: string) {
@@ -1062,13 +1136,16 @@ const layer = Layer.effect(
           q = []
           promptQueue.set(input.sessionID, q)
         }
+        const messageID = input.messageID ?? MessageID.ascending()
+        ;(input as { messageID?: MessageID }).messageID = messageID
         q.push(input)
+        yield* publishQueued(input.sessionID)
         yield* Effect.logInfo("prompt enqueued in session queue", {
           "session.id": input.sessionID,
           queueLength: q.length,
         })
         const info: SessionV1.User = {
-          id: input.messageID ?? MessageID.ascending(),
+          id: messageID,
           role: "user",
           sessionID: input.sessionID,
           time: { created: Date.now() },
@@ -1379,11 +1456,12 @@ const layer = Layer.effect(
       if (q && q.length > 0) {
         const next = q.shift()!
         if (q.length === 0) promptQueue.delete(input.sessionID)
+        yield* publishQueued(input.sessionID)
         yield* Effect.logInfo("draining next enqueued prompt", {
           "session.id": input.sessionID,
           remaining: q.length,
         })
-        yield* prompt(next).pipe(Effect.forkIn(scope))
+        yield* prompt({ ...next, force: true }).pipe(Effect.forkIn(scope))
       }
       return result
     })
@@ -1529,6 +1607,10 @@ const layer = Layer.effect(
       shell,
       command,
       resolvePromptParts,
+      getQueued,
+      removeQueued,
+      reorderQueued,
+      popQueued,
     })
   }),
 )

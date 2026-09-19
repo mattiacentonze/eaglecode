@@ -205,6 +205,14 @@ import type {
   SessionPromptAsyncResponses,
   SessionPromptErrors,
   SessionPromptResponses,
+  SessionQueuedErrors,
+  SessionQueuedPopErrors,
+  SessionQueuedPopResponses,
+  SessionQueuedRemoveErrors,
+  SessionQueuedRemoveResponses,
+  SessionQueuedReorderErrors,
+  SessionQueuedReorderResponses,
+  SessionQueuedResponses,
   SessionRevertErrors,
   SessionRevertResponses,
   SessionShareErrors,
@@ -4148,6 +4156,156 @@ export class Session2 extends HeyApiClient {
         ...options?.headers,
         ...params.headers,
       },
+    })
+  }
+
+  /**
+   * Get queued prompts
+   *
+   * Get all queued prompts for the session.
+   */
+  public queued<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionQueuedResponses, SessionQueuedErrors, ThrowOnError>({
+      url: "/session/{sessionID}/queued",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Remove queued prompt
+   *
+   * Remove a queued prompt from the session queue.
+   */
+  public queuedRemove<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      messageID?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "messageID" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionQueuedRemoveResponses, SessionQueuedRemoveErrors, ThrowOnError>(
+      {
+        url: "/session/{sessionID}/queued/remove",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+
+  /**
+   * Reorder queued prompt
+   *
+   * Move a queued prompt up or down in the session queue.
+   */
+  public queuedReorder<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      messageID?: string
+      direction?: "up" | "down"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "messageID" },
+            { in: "body", key: "direction" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      SessionQueuedReorderResponses,
+      SessionQueuedReorderErrors,
+      ThrowOnError
+    >({
+      url: "/session/{sessionID}/queued/reorder",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Pop last queued prompt
+   *
+   * Pop the last queued prompt from the session queue.
+   */
+  public queuedPop<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionQueuedPopResponses, SessionQueuedPopErrors, ThrowOnError>({
+      url: "/session/{sessionID}/queued/pop",
+      ...options,
+      ...params,
     })
   }
 

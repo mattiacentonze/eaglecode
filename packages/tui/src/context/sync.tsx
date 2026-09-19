@@ -90,6 +90,9 @@ export const {
       session_status: {
         [sessionID: string]: SessionStatus
       }
+      queued: {
+        [sessionID: string]: Array<{ messageID: string; text: string }>
+      }
       session_diff: {
         [sessionID: string]: SnapshotFileDiff[]
       }
@@ -132,6 +135,7 @@ export const {
       provider_default: {},
       session: [],
       session_status: {},
+      queued: {},
       session_diff: {},
       todo: {},
       message: {},
@@ -315,6 +319,11 @@ export const {
 
         case "session.status": {
           setStore("session_status", event.properties.sessionID, event.properties.status)
+          break
+        }
+
+        case "session.queued": {
+          setStore("queued", event.properties.sessionID, event.properties.prompts)
           break
         }
 
@@ -598,11 +607,12 @@ export const {
           const tracker = { messages: new Set<string>(), parts: new Set<string>() }
           hydratingSessions.set(sessionID, tracker)
           const task = (async () => {
-            const [session, messages, todo, diff] = await Promise.all([
+            const [session, messages, todo, diff, queued] = await Promise.all([
               sdk.client.session.get({ sessionID }, { throwOnError: true }),
               sdk.client.session.messages({ sessionID, limit: 100 }),
               sdk.client.session.todo({ sessionID }),
               sdk.client.session.diff({ sessionID }),
+              sdk.client.session.queued({ sessionID }).catch(() => ({ data: [] })),
             ])
             setStore(
               produce((draft) => {
@@ -610,6 +620,7 @@ export const {
                 if (match.found) draft.session[match.index] = session.data!
                 if (!match.found) draft.session.splice(match.index, 0, session.data!)
                 draft.todo[sessionID] = todo.data ?? []
+                draft.queued[sessionID] = queued.data ?? []
                 const currentMessages = draft.message[sessionID] ?? []
                 const infos = (messages.data ?? []).flatMap((message) => {
                   if (!tracker.messages.has(message.info.id)) return [message.info]

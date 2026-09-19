@@ -74,6 +74,20 @@ export const RevertPayload = Schema.Struct(Struct.omit(SessionRevert.RevertInput
 export const PermissionResponsePayload = Schema.Struct({
   response: PermissionV1.Reply,
 })
+export const QueuedPromptItem = Schema.Struct({
+  messageID: Schema.String,
+  text: Schema.String,
+})
+export const QueuedRemovePayload = Schema.Struct({
+  messageID: Schema.String,
+})
+export const QueuedReorderPayload = Schema.Struct({
+  messageID: Schema.String,
+  direction: Schema.Literals(["up", "down"]),
+})
+export const QueuedPopResponse = Schema.Struct({
+  text: Schema.String,
+})
 
 export const SessionPaths = {
   list: root,
@@ -94,6 +108,10 @@ export const SessionPaths = {
   summarize: `${root}/:sessionID/summarize`,
   prompt: `${root}/:sessionID/message`,
   promptAsync: `${root}/:sessionID/prompt_async`,
+  queued: `${root}/:sessionID/queued`,
+  queuedRemove: `${root}/:sessionID/queued/remove`,
+  queuedReorder: `${root}/:sessionID/queued/reorder`,
+  queuedPop: `${root}/:sessionID/queued/pop`,
   command: `${root}/:sessionID/command`,
   shell: `${root}/:sessionID/shell`,
   revert: `${root}/:sessionID/revert`,
@@ -338,6 +356,56 @@ export const SessionApi = HttpApi.make("session")
             summary: "Send async message",
             description:
               "Create and send a new message to a session asynchronously, starting the session if needed and returning immediately.",
+          }),
+        ),
+        HttpApiEndpoint.get("queued", SessionPaths.queued, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: described(Schema.Array(QueuedPromptItem), "Queued prompts for session"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.queued",
+            summary: "Get queued prompts",
+            description: "Get all queued prompts for the session.",
+          }),
+        ),
+        HttpApiEndpoint.post("queuedRemove", SessionPaths.queuedRemove, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          payload: QueuedRemovePayload,
+          success: described(HttpApiSchema.NoContent, "Queued prompt removed"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.queued_remove",
+            summary: "Remove queued prompt",
+            description: "Remove a queued prompt from the session queue.",
+          }),
+        ),
+        HttpApiEndpoint.post("queuedReorder", SessionPaths.queuedReorder, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          payload: QueuedReorderPayload,
+          success: described(HttpApiSchema.NoContent, "Queued prompt reordered"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.queued_reorder",
+            summary: "Reorder queued prompt",
+            description: "Move a queued prompt up or down in the session queue.",
+          }),
+        ),
+        HttpApiEndpoint.post("queuedPop", SessionPaths.queuedPop, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: described(QueuedPopResponse, "Popped queued prompt"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.queued_pop",
+            summary: "Pop last queued prompt",
+            description: "Pop the last queued prompt from the session queue.",
           }),
         ),
         HttpApiEndpoint.post("command", SessionPaths.command, {

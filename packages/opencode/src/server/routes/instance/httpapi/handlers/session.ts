@@ -31,6 +31,8 @@ import {
   MessagesQuery,
   PermissionResponsePayload,
   PromptPayload,
+  QueuedRemovePayload,
+  QueuedReorderPayload,
   RevertPayload,
   ShellPayload,
   SummarizePayload,
@@ -328,6 +330,38 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       return HttpApiSchema.NoContent.make()
     })
 
+    const queued = Effect.fn("SessionHttpApi.queued")(function* (ctx: {
+      params: { sessionID: SessionID }
+    }) {
+      yield* requireSession(ctx.params.sessionID)
+      return yield* promptSvc.getQueued(ctx.params.sessionID)
+    })
+
+    const queuedRemove = Effect.fn("SessionHttpApi.queuedRemove")(function* (ctx: {
+      params: { sessionID: SessionID }
+      payload: typeof QueuedRemovePayload.Type
+    }) {
+      yield* requireSession(ctx.params.sessionID)
+      yield* promptSvc.removeQueued(ctx.params.sessionID, ctx.payload.messageID)
+      return HttpApiSchema.NoContent.make()
+    })
+
+    const queuedReorder = Effect.fn("SessionHttpApi.queuedReorder")(function* (ctx: {
+      params: { sessionID: SessionID }
+      payload: typeof QueuedReorderPayload.Type
+    }) {
+      yield* requireSession(ctx.params.sessionID)
+      yield* promptSvc.reorderQueued(ctx.params.sessionID, ctx.payload.messageID, ctx.payload.direction)
+      return HttpApiSchema.NoContent.make()
+    })
+
+    const queuedPop = Effect.fn("SessionHttpApi.queuedPop")(function* (ctx: {
+      params: { sessionID: SessionID }
+    }) {
+      yield* requireSession(ctx.params.sessionID)
+      return yield* promptSvc.popQueued(ctx.params.sessionID)
+    })
+
     const command = Effect.fn("SessionHttpApi.command")(function* (ctx: {
       params: { sessionID: SessionID }
       payload: typeof CommandPayload.Type
@@ -430,6 +464,10 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       .handle("summarize", summarize)
       .handle("prompt", prompt)
       .handle("promptAsync", promptAsync)
+      .handle("queued", queued)
+      .handle("queuedRemove", queuedRemove)
+      .handle("queuedReorder", queuedReorder)
+      .handle("queuedPop", queuedPop)
       .handle("command", command)
       .handle("shell", shell)
       .handle("revert", revert)

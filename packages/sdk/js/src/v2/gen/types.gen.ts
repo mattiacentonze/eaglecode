@@ -81,6 +81,7 @@ export type Event =
   | EventProjectUpdated
   | EventSessionStatus
   | EventSessionIdle
+  | EventSessionQueued
   | EventQuestionAsked
   | EventQuestionReplied
   | EventQuestionRejected
@@ -1504,6 +1505,17 @@ export type GlobalEvent = {
         type: "session.idle"
         properties: {
           sessionID: string
+        }
+      }
+    | {
+        id: string
+        type: "session.queued"
+        properties: {
+          sessionID: string
+          prompts: Array<{
+            messageID: string
+            text: string
+          }>
         }
       }
     | {
@@ -2933,6 +2945,7 @@ export type V2Event =
   | ProjectUpdated
   | SessionStatus2
   | SessionIdle
+  | SessionQueued
   | QuestionAsked
   | QuestionReplied2
   | QuestionRejected2
@@ -5931,6 +5944,27 @@ export type SessionIdle = {
   }
 }
 
+export type SessionQueued = {
+  id: string
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "session.queued"
+  durable?: {
+    aggregateID: string
+    seq: number
+    version: number
+  }
+  location?: LocationRef
+  data: {
+    sessionID: string
+    prompts: Array<{
+      messageID: string
+      text: string
+    }>
+  }
+}
+
 export type QuestionAsked = {
   id: string
   metadata?: {
@@ -6946,6 +6980,18 @@ export type EventSessionIdle = {
   type: "session.idle"
   properties: {
     sessionID: string
+  }
+}
+
+export type EventSessionQueued = {
+  id: string
+  type: "session.queued"
+  properties: {
+    sessionID: string
+    prompts: Array<{
+      messageID: string
+      text: string
+    }>
   }
 }
 
@@ -10192,6 +10238,152 @@ export type SessionPromptAsyncResponses = {
 }
 
 export type SessionPromptAsyncResponse = SessionPromptAsyncResponses[keyof SessionPromptAsyncResponses]
+
+export type SessionQueuedData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/queued"
+}
+
+export type SessionQueuedErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionQueuedError = SessionQueuedErrors[keyof SessionQueuedErrors]
+
+export type SessionQueuedResponses = {
+  /**
+   * Queued prompts for session
+   */
+  200: Array<{
+    messageID: string
+    text: string
+  }>
+}
+
+export type SessionQueuedResponse = SessionQueuedResponses[keyof SessionQueuedResponses]
+
+export type SessionQueuedRemoveData = {
+  body?: {
+    messageID: string
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/queued/remove"
+}
+
+export type SessionQueuedRemoveErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionQueuedRemoveError = SessionQueuedRemoveErrors[keyof SessionQueuedRemoveErrors]
+
+export type SessionQueuedRemoveResponses = {
+  /**
+   * Queued prompt removed
+   */
+  204: void
+}
+
+export type SessionQueuedRemoveResponse = SessionQueuedRemoveResponses[keyof SessionQueuedRemoveResponses]
+
+export type SessionQueuedReorderData = {
+  body?: {
+    messageID: string
+    direction: "up" | "down"
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/queued/reorder"
+}
+
+export type SessionQueuedReorderErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionQueuedReorderError = SessionQueuedReorderErrors[keyof SessionQueuedReorderErrors]
+
+export type SessionQueuedReorderResponses = {
+  /**
+   * Queued prompt reordered
+   */
+  204: void
+}
+
+export type SessionQueuedReorderResponse = SessionQueuedReorderResponses[keyof SessionQueuedReorderResponses]
+
+export type SessionQueuedPopData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/queued/pop"
+}
+
+export type SessionQueuedPopErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionQueuedPopError = SessionQueuedPopErrors[keyof SessionQueuedPopErrors]
+
+export type SessionQueuedPopResponses = {
+  /**
+   * Popped queued prompt
+   */
+  200: {
+    text: string
+  }
+}
+
+export type SessionQueuedPopResponse = SessionQueuedPopResponses[keyof SessionQueuedPopResponses]
 
 export type SessionCommandData = {
   body?: {
