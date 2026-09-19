@@ -8,6 +8,7 @@ import { errorMessage } from "@opencode-ai/tui/util/error"
 import { withTimeout } from "@/util/timeout"
 import { withNetworkOptions, resolveNetworkOptionsNoConfig, hasArg } from "@/cli/network"
 import { Filesystem } from "@/util/filesystem"
+import { Process } from "@/util/process"
 import type { GlobalEvent } from "@opencode-ai/sdk/v2"
 import type { EventSource } from "@opencode-ai/tui/context/sdk"
 import { writeHeapSnapshot } from "v8"
@@ -92,6 +93,11 @@ export const TuiThreadCommand = cmd({
         alias: ["s"],
         type: "string",
         describe: "session id to continue",
+      })
+      .option("branch", {
+        alias: ["b"],
+        type: "string",
+        describe: "git branch to check out before starting",
       })
       .option("fork", {
         type: "boolean",
@@ -206,6 +212,21 @@ export const TuiThreadCommand = cmd({
         return
       }
       const cwd = Filesystem.resolve(process.cwd())
+
+      if (args.branch) {
+        if (args.branch.startsWith("-")) {
+          UI.error(`Invalid branch name "${args.branch}": branch name cannot start with "-"`)
+          process.exitCode = 1
+          return
+        }
+        const checkout = await Process.run(["git", "checkout", args.branch], { cwd, nothrow: true })
+        if (checkout.code !== 0) {
+          const err = checkout.stderr.toString().trim()
+          UI.error(`Failed to checkout branch "${args.branch}": ${err || "git checkout failed"}`)
+          process.exitCode = 1
+          return
+        }
+      }
 
       const worker = new Worker(file, {
         env: Object.fromEntries(

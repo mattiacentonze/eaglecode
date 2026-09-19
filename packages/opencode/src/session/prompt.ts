@@ -238,19 +238,6 @@ const layer = Layer.effect(
       return { text: "" }
     })
 
-    const steerQueued = Effect.fn("SessionPrompt.steerQueued")(function* (sessionID: SessionID) {
-      yield* Effect.logInfo("steerQueued", { "session.id": sessionID })
-      const q = promptQueue.get(sessionID)
-      if (!q || q.length === 0) {
-        return
-      }
-      const next = q.shift()!
-      if (q.length === 0) promptQueue.delete(sessionID)
-      yield* publishQueued(sessionID)
-      yield* state.cancel(sessionID)
-      yield* prompt({ ...next, force: true }).pipe(Effect.forkIn(scope))
-    })
-
     const deferQueued = Effect.fn("SessionPrompt.deferQueued")(function* (sessionID: SessionID, messageID?: string) {
       yield* Effect.logInfo("deferQueued", { "session.id": sessionID, messageID })
       const q = promptQueue.get(sessionID)
@@ -263,6 +250,19 @@ const layer = Layer.effect(
         }
         yield* publishQueued(sessionID)
       }
+    })
+
+    const steerQueued = Effect.fn("SessionPrompt.steerQueued")(function* (sessionID: SessionID) {
+      yield* Effect.logInfo("steerQueued", { "session.id": sessionID })
+      const q = promptQueue.get(sessionID)
+      if (!q || q.length === 0) {
+        return
+      }
+      const next = q.shift()!
+      if (q.length === 0) promptQueue.delete(sessionID)
+      yield* publishQueued(sessionID)
+      yield* state.cancel(sessionID)
+      yield* prompt({ ...next, force: true }).pipe(Effect.forkIn(scope))
     })
 
     const resolvePromptParts = Effect.fn("SessionPrompt.resolvePromptParts")(function* (template: string) {
