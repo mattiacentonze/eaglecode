@@ -59,6 +59,7 @@ import { readLocalAttachment } from "./local-attachment"
 import { useLocation } from "../../context/location"
 import { Queued } from "./queued"
 import { DialogQueuedPrompts } from "../dialog-queued-prompts"
+import { DialogShortcuts } from "../dialog-shortcuts"
 
 registerOpencodeSpinner()
 
@@ -410,7 +411,7 @@ export function Prompt(props: PromptProps) {
             void sdk.client.session.queuedSteer({ sessionID: props.sessionID })
             setStore("interrupt", 0)
             toast.show({
-              message: "Interrupting to submit queued message immediately",
+              message: "Model interrupted to submit steer instructions.",
               variant: "info",
               duration: 3000,
             })
@@ -588,6 +589,14 @@ export function Prompt(props: PromptProps) {
           ))
         },
       },
+      {
+        title: "Keyboard shortcuts",
+        name: "prompt.shortcuts",
+        category: "Help",
+        run: () => {
+          dialog.replace(() => <DialogShortcuts sessionID={props.sessionID} />)
+        },
+      },
     ].map((entry) => ({
       namespace: "palette",
       ...entry,
@@ -613,6 +622,7 @@ export function Prompt(props: PromptProps) {
       "workspace.set",
       "session.move",
       "session.queued_prompts",
+      "prompt.shortcuts",
     ]),
   }))
 
@@ -905,6 +915,32 @@ export function Prompt(props: PromptProps) {
   useBindings(() => {
     return {
       target: inputTarget,
+      enabled: (() => {
+        cursorVersion()
+        return (
+          inputTarget() !== undefined &&
+          !props.disabled &&
+          !auto()?.visible &&
+          input !== undefined &&
+          input.plainText === ""
+        )
+      })(),
+      bindings: [
+        {
+          key: "?",
+          desc: "Keyboard shortcuts",
+          group: "Help",
+          cmd: () => {
+            dialog.replace(() => <DialogShortcuts sessionID={props.sessionID} />)
+          },
+        },
+      ],
+    }
+  })
+
+  useBindings(() => {
+    return {
+      target: inputTarget,
       priority: 15,
       enabled: (() => {
         cursorVersion()
@@ -1136,14 +1172,6 @@ export function Prompt(props: PromptProps) {
       })
     } else {
       move.startSubmit()
-      if (!force) {
-        toast.show({
-          title: "Prompt enqueued",
-          message: "Task will start when current task completes.",
-          variant: "info",
-          duration: 3000,
-        })
-      }
       sdk.client.session
         .prompt(
           {
@@ -1164,6 +1192,16 @@ export function Prompt(props: PromptProps) {
           },
           { throwOnError: true },
         )
+        .then((res) => {
+          if (!force) {
+            const messageID = res?.data?.info?.id ?? ""
+            toast.show({
+              message: `Queued message ${messageID} for thread ${sessionID}.`.replace("  ", " "),
+              variant: "info",
+              duration: 3000,
+            })
+          }
+        })
         .catch((error) => {
           toast.show({
             title: "Failed to send prompt",
@@ -1478,12 +1516,17 @@ export function Prompt(props: PromptProps) {
                     void sdk.client.session.queuedSteer({ sessionID: props.sessionID! })
                     setStore("interrupt", 0)
                     toast.show({
-                      message: "Interrupting to submit queued message immediately",
+                      message: "Model interrupted to submit steer instructions.",
                       variant: "info",
                       duration: 3000,
                     })
                     return
                   }
+                }
+                if ((e.name === "?" || e.sequence === "?") && input.plainText === "") {
+                  e.preventDefault()
+                  dialog.replace(() => <DialogShortcuts sessionID={props.sessionID} />)
+                  return
                 }
                 if ((e.meta || e.option) && (e.name === "up" || e.name === "k")) {
                   const q = props.sessionID ? (sync.data.queued?.[props.sessionID] ?? []) : []
@@ -1768,19 +1811,19 @@ export function Prompt(props: PromptProps) {
               </Show>
               <Switch>
                 <Match when={store.mode === "normal"}>
-                  <text fg={theme.text}>
-                    {agentShortcut() || "shift+tab"} <span style={{ fg: theme.textMuted }}>agents</span>
-                  </text>
-                  <text fg={theme.text}>
-                    {queueShortcut() || "tab"} <span style={{ fg: theme.textMuted }}>enqueue</span>
-                  </text>
-                  <text fg={theme.text}>
-                    {(enterShortcut() === "return" ? "enter" : enterShortcut()) || "enter"}{" "}
-                    <span style={{ fg: theme.textMuted }}>steer</span>
-                  </text>
-                  <text fg={theme.text}>
-                    {paletteShortcut() || "ctrl+p"} <span style={{ fg: theme.textMuted }}>commands</span>
-                  </text>
+                  <Show
+                    when={status().type !== "idle"}
+                    fallback={
+                      <text fg={theme.text}>
+                        ? <span style={{ fg: theme.textMuted }}>for shortcuts</span>
+                      </text>
+                    }
+                  >
+                    <text fg={theme.text}>
+                      {queueShortcut() === "tab" ? "Tab" : (queueShortcut() || "Tab")}{" "}
+                      <span style={{ fg: theme.textMuted }}>to queue message</span>
+                    </text>
+                  </Show>
                 </Match>
                 <Match when={store.mode === "shell"}>
                   <text fg={theme.text}>
