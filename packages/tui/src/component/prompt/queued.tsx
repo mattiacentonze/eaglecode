@@ -56,7 +56,7 @@ export function Queued(props: QueuedProps) {
         <Show when={pendingSteers().length > 0}>
           <box flexDirection="row" paddingLeft={1} paddingRight={1}>
             <text fg={theme.text}>
-              • Messages to be submitted after next tool call{" "}
+              • Messages queued (will be sent when the task completes){" "}
               <span style={{ fg: theme.textMuted }}>(press {interruptKey()} to interrupt and send immediately)</span>
             </text>
           </box>
