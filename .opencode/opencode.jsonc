@@ -11,6 +11,11 @@
       "path": "~/.local/share/opencode",
       "description": "Contains opencode logs and data",
     },
+    "universal-model-manager": {
+      "repository": "github.com/mattiacentonze/universal-model-manager",
+      "path": "/home/mcentonze1-iit.local/projects/universal-model-manager",
+      "description": "Universal Model Manager plugin with unified 5-mode routing engine, multi-account rotation, quota poller, and cost/latency telemetry",
+    },
   },
   "mcp": {},
   "tools": {
