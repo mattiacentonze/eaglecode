@@ -350,7 +350,7 @@ export function Prompt(props: PromptProps) {
         hidden: true,
         run: async () => {
           if (!input.focused) return
-          const force = status().type === "idle"
+          const force = false
           const handled = await submit(force)
           if (!handled) return
 
@@ -397,7 +397,7 @@ export function Prompt(props: PromptProps) {
         enabled:
           status().type !== "idle" ||
           (props.sessionID ? (sync.data.queued?.[props.sessionID]?.length ?? 0) > 0 : false),
-        run: () => {
+        run: async () => {
           if (auto()?.visible) return
           if (!input.focused) return
           // TODO: this should be its own command
@@ -407,12 +407,44 @@ export function Prompt(props: PromptProps) {
           }
           if (!props.sessionID) return
 
+          const hasInput = Boolean(store.prompt.input.trim())
           const queuedCount = sync.data.queued?.[props.sessionID]?.length ?? 0
+          const isRunning = status().type !== "idle"
+
+          if (hasInput && isRunning) {
+            const handled = await submit(true)
+            if (handled && props.sessionID) {
+              void sdk.client.session.abort({ sessionID: props.sessionID })
+            }
+            setStore("interrupt", 0)
+            toast.show({
+              message: "Model interrupted to submit steer instructions immediately.",
+              variant: "info",
+              duration: 3000,
+            })
+            dialog.clear()
+            return
+          }
+
           if (queuedCount > 0) {
             void sdk.client.session.queuedSteer({ sessionID: props.sessionID })
             setStore("interrupt", 0)
             toast.show({
               message: "Model interrupted to submit steer instructions.",
+              variant: "info",
+              duration: 3000,
+            })
+            dialog.clear()
+            return
+          }
+
+          if (isRunning) {
+            void sdk.client.session.abort({
+              sessionID: props.sessionID,
+            })
+            setStore("interrupt", 0)
+            toast.show({
+              message: "Model interrupted.",
               variant: "info",
               duration: 3000,
             })
@@ -1239,7 +1271,13 @@ export function Prompt(props: PromptProps) {
           if (!force) {
             const messageID = res?.data?.info?.id ?? ""
             toast.show({
-              message: `Queued message ${messageID} for thread ${sessionID}.`.replace("  ", " "),
+              message: `Queued follow-up message (will be sent when the task completes).`,
+              variant: "info",
+              duration: 3000,
+            })
+          } else if (status().type !== "idle") {
+            toast.show({
+              message: "Steer instructions submitted (will be sent at next tool call).",
               variant: "info",
               duration: 3000,
             })
@@ -1563,17 +1601,50 @@ export function Prompt(props: PromptProps) {
                   return
                 }
                 if (e.name === "escape") {
-                  const q = props.sessionID ? (sync.data.queued?.[props.sessionID] ?? []) : []
-                  if (q.length > 0) {
-                    e.preventDefault()
-                    void sdk.client.session.queuedSteer({ sessionID: props.sessionID! })
-                    setStore("interrupt", 0)
-                    toast.show({
-                      message: "Model interrupted to submit steer instructions.",
-                      variant: "info",
-                      duration: 3000,
-                    })
-                    return
+                  if (props.sessionID) {
+                    const hasInput = Boolean(store.prompt.input.trim())
+                    const queuedCount = sync.data.queued?.[props.sessionID]?.length ?? 0
+                    const isRunning = status().type !== "idle"
+
+                    if (hasInput && isRunning) {
+                      e.preventDefault()
+                      void submit(true).then((handled) => {
+                        if (handled && props.sessionID) {
+                          void sdk.client.session.abort({ sessionID: props.sessionID })
+                        }
+                      })
+                      setStore("interrupt", 0)
+                      toast.show({
+                        message: "Model interrupted to submit steer instructions immediately.",
+                        variant: "info",
+                        duration: 3000,
+                      })
+                      return
+                    }
+
+                    if (queuedCount > 0) {
+                      e.preventDefault()
+                      void sdk.client.session.queuedSteer({ sessionID: props.sessionID })
+                      setStore("interrupt", 0)
+                      toast.show({
+                        message: "Model interrupted to submit steer instructions.",
+                        variant: "info",
+                        duration: 3000,
+                      })
+                      return
+                    }
+
+                    if (isRunning) {
+                      e.preventDefault()
+                      void sdk.client.session.abort({ sessionID: props.sessionID })
+                      setStore("interrupt", 0)
+                      toast.show({
+                        message: "Model interrupted.",
+                        variant: "info",
+                        duration: 3000,
+                      })
+                      return
+                    }
                   }
                 }
                 if ((e.name === "?" || e.sequence === "?") && input.plainText === "") {
@@ -1593,8 +1664,7 @@ export function Prompt(props: PromptProps) {
               onSubmit={() => {
                 // IME: double-defer so the last composed character (e.g. Korean
                 // hangul) is flushed to plainText before we read it for submission.
-                const force = status().type === "idle"
-                setTimeout(() => setTimeout(() => submit(force), 0), 0)
+                setTimeout(() => setTimeout(() => submit(true), 0), 0)
               }}
               onPaste={async (event: PasteEvent) => {
                 if (props.disabled) {
@@ -1876,8 +1946,10 @@ export function Prompt(props: PromptProps) {
                     }
                   >
                     <text fg={theme.text}>
+                      {enterShortcut() || "Enter"} <span style={{ fg: theme.textMuted }}>steer</span> ·{" "}
                       {queueShortcut() === "tab" ? "Tab" : (queueShortcut() || "Tab")}{" "}
-                      <span style={{ fg: theme.textMuted }}>to queue message</span>
+                      <span style={{ fg: theme.textMuted }}>queue</span> · Esc{" "}
+                      <span style={{ fg: theme.textMuted }}>interrupt</span>
                     </text>
                   </Show>
                 </Match>

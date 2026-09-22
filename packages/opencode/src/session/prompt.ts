@@ -258,6 +258,11 @@ const layer = Layer.effect(
       if (!q || q.length === 0) {
         return
       }
+      const currentPhase = yield* state.phase(sessionID)
+      if (currentPhase === "generating") {
+        yield* deferQueued(sessionID)
+        return
+      }
       const next = q.shift()!
       if (q.length === 0) promptQueue.delete(sessionID)
       yield* publishQueued(sessionID)
@@ -1273,6 +1278,7 @@ const layer = Layer.effect(
           }
 
           step++
+          yield* state.setPhase(sessionID, "generating")
           if (step === 1)
             yield* title({
               session,
@@ -1412,21 +1418,23 @@ const layer = Layer.effect(
             ]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
-            const result = yield* handle.process({
-              user: lastUser,
-              agent,
-              permission: session.permission,
-              sessionID,
-              parentSessionID: session.parentID,
-              system,
-              messages: [
-                ...modelMsgs,
-                ...(isLastStep ? [{ role: "assistant" as const, content: MAX_STEPS_PROMPT }] : []),
-              ],
-              tools,
-              model,
-              toolChoice: format.type === "json_schema" ? "required" : undefined,
-            })
+            const result = yield* handle
+              .process({
+                user: lastUser,
+                agent,
+                permission: session.permission,
+                sessionID,
+                parentSessionID: session.parentID,
+                system,
+                messages: [
+                  ...modelMsgs,
+                  ...(isLastStep ? [{ role: "assistant" as const, content: MAX_STEPS_PROMPT }] : []),
+                ],
+                tools,
+                model,
+                toolChoice: format.type === "json_schema" ? "required" : undefined,
+              })
+              .pipe(Effect.ensuring(state.setPhase(sessionID, "betweenTurns")))
 
             if (structured !== undefined) {
               handle.message.structured = structured
